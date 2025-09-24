@@ -1,0 +1,94 @@
+# Dev Container Docker Compose
+version: '3.8'
+
+services:
+  # Fastify API - 开发容器
+  fastify-api-dev:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: fastify-api-devcontainer
+    volumes:
+      - ..:/app:cached  # 挂载源码目录，使用 cached 优化性能
+      - /app/node_modules  # 保护 node_modules 不被覆盖
+      - ../logs:/app/logs
+      # Git 配置挂载
+      - ~/.gitconfig:/home/fastify/.gitconfig:ro
+      - ~/.ssh:/home/fastify/.ssh:ro
+    env_file:
+      - ../.env.docker
+    environment:
+      - HOST=0.0.0.0
+      - PORT=3000
+    ports:
+      - "3000:3000"
+      - "9229:9229"  # Node.js 调试端口
+    networks:
+      - devcontainer_net
+    depends_on:
+      - mysql-dev
+      - redis-dev
+    # 保持容器运行
+    command: sleep infinity
+    # 开发容器需要的特权
+    privileged: true
+    cap_add:
+      - SYS_PTRACE
+
+  # MySQL 开发数据库
+  mysql-dev:
+    image: mysql:8.0
+    container_name: fastify-mysql-devcontainer
+    restart: unless-stopped
+    environment:
+      - MYSQL_ROOT_PASSWORD=root123
+      - MYSQL_DATABASE=gameserver_dev
+      - MYSQL_USER=mysql
+      - MYSQL_PASSWORD=dev123
+    ports:
+      - "3306:3306"
+    volumes:
+      - mysql_dev_data:/var/lib/mysql
+      - ../db/init:/docker-entrypoint-initdb.d
+      - ../db/seeds:/docker-entrypoint-seeds.d
+    networks:
+      - devcontainer_net
+    command: --default-authentication-plugin=mysql_native_password
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "mysql", "-pdev123"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+
+  # Redis 开发缓存
+  redis-dev:
+    image: redis:7-alpine
+    container_name: fastify-redis-devcontainer
+    restart: unless-stopped
+    ports:
+      - "6381:6379"
+    volumes:
+      - redis_dev_data:/data
+    networks:
+      - devcontainer_net
+    command: redis-server --appendonly yes
+
+  # 数据库管理工具
+  adminer:
+    image: adminer:latest
+    container_name: fastify-adminer-devcontainer
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    networks:
+      - devcontainer_net
+    environment:
+      - ADMINER_DEFAULT_SERVER=mysql-dev
+
+volumes:
+  mysql_dev_data:
+  redis_dev_data:
+
+networks:
+  devcontainer_net:
+    driver: bridge

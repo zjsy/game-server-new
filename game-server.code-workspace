@@ -1,0 +1,15 @@
+{
+  "folders": [
+    {
+      "name": "Fastify API", 
+      "path": "./fastify-api"
+    },
+    {
+      "name": "Centrifugo Gateway",
+      "path": "./centrifugo-gateway"
+    }
+  ],
+  "settings": {
+    "remote.containers.workspaceFolder": "/workspaces/game-server/fastify-api"
+  }
+}

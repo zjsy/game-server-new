@@ -1,5 +1,5 @@
-import type { FastifyPluginAsyncTypebox } from "@fastify/type-provider-typebox";
-import { Type } from "@sinclair/typebox";
+import type { FastifyPluginAsyncTypebox } from '@fastify/type-provider-typebox';
+import { Type } from '@sinclair/typebox';
 
 export default (async (app) => {
   /*
@@ -7,7 +7,7 @@ export default (async (app) => {
          --url http://127.0.0.1:3000/api/hello-http
   */
   app.get(
-    "",
+    '',
     {
       schema: {
         response: {
@@ -19,8 +19,8 @@ export default (async (app) => {
     },
     async (req, reply) => {
       return reply.send({
-        message: "Hello, World1!",
+        message: 'Hello, World1!',
       });
-    }
+    },
   );
 }) as FastifyPluginAsyncTypebox;
