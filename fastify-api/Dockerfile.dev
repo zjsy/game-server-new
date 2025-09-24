@@ -1,0 +1,30 @@
+# Development Dockerfile for Fastify API
+FROM node:22-alpine
+
+# Set working directory
+WORKDIR /app
+
+# Install pnpm
+RUN npm install -g pnpm
+
+# Copy package files
+COPY package.json pnpm-lock.yaml ./
+
+# Install all dependencies (including dev dependencies)
+RUN pnpm install --frozen-lockfile
+
+# Create non-root user
+RUN addgroup -g 1001 -S nodejs
+RUN adduser -S fastify -u 1001
+
+# Change ownership to nodejs user
+RUN chown -R fastify:nodejs /app
+
+# Switch to non-root user
+USER fastify
+
+# Expose port and debug port
+EXPOSE 3000 9229
+
+# Default command (can be overridden in docker-compose)
+CMD ["pnpm", "run", "dev"]

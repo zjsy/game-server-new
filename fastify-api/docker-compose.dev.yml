@@ -1,0 +1,81 @@
+# Development Docker Compose for Fastify API
+version: '3.8'
+
+services:
+  # Fastify API - 开发模式
+  fastify-api-dev:
+    build:
+      context: .
+      dockerfile: Dockerfile.dev
+    container_name: fastify-api-dev
+    restart: always
+    ports:
+      - "3000:3000"
+      - "9229:9229"  # Node.js 调试端口
+    env_file:
+      - .env.docker  # 所有环境变量统一从文件加载
+    volumes:
+      - .:/app  # 挂载源码目录实现热重载
+      - /app/node_modules  # 保护 node_modules
+      - ./logs:/app/logs
+    networks:
+      - fastify_dev_net
+    command: pnpm run dev
+
+  # MySQL 开发数据库
+  mysql-dev:
+    image: mysql:8.0
+    container_name: fastify-mysql-dev
+    restart: always
+    environment:
+      - MYSQL_ROOT_PASSWORD=root123
+      - MYSQL_DATABASE=gameserver_dev
+      - MYSQL_USER=mysql
+      - MYSQL_PASSWORD=dev123
+    ports:
+      - "3306:3306"  # MySQL 标准端口
+    volumes:
+      - mysql_dev_data:/var/lib/mysql
+      - ./db/init:/docker-entrypoint-initdb.d
+      - ./db/seeds:/docker-entrypoint-seeds.d  # 开发数据
+    networks:
+      - fastify_dev_net
+    command: --default-authentication-plugin=mysql_native_password
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "mysql", "-pdev123"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+
+  # Redis 开发缓存
+  redis-dev:
+    image: redis:7-alpine
+    container_name: fastify-redis-dev
+    restart: always
+    ports:
+      - "6381:6379"
+    volumes:
+      - redis_dev_data:/data
+    networks:
+      - fastify_dev_net
+    command: redis-server --appendonly yes
+
+  # 数据库管理工具 (Adminer)
+  adminer:
+    image: adminer:latest
+    container_name: fastify-adminer
+    restart: always
+    ports:
+      - "8080:8080"
+    networks:
+      - fastify_dev_net
+    profiles:
+      - tools
+
+volumes:
+  mysql_dev_data:
+  redis_dev_data:
+
+networks:
+  fastify_dev_net:
+    driver: bridge

@@ -1,0 +1,114 @@
+version: '3.8'
+
+services:
+  # Fastify API 服务
+  fastify-api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: fastify-api
+    restart: always
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=production
+      - HOST=0.0.0.0  # 容器环境必须绑定所有接口
+      - PORT=3000
+      - LOG_LEVEL=info
+      # 数据库连接（如果需要）
+      - DB_HOST=mysql
+      - DB_PORT=3306
+      - DB_NAME=gameserver
+      - DB_USER=mysql
+      - DB_PASSWORD=mysql123
+      # Redis 连接（如果需要缓存）
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      # Centrifugo 连接（如果需要推送消息）
+      - CENTRIFUGO_API_URL=http://centrifugo-nginx:80/api
+      - CENTRIFUGO_API_KEY=my_api_key
+    volumes:
+      - ./logs:/app/logs  # 日志目录
+    networks:
+      - fastify_net
+      - centrifugo_net  # 连接到 Centrifugo 网络
+    healthcheck:
+      test: ["CMD", "node", "-e", "require('http').get('http://localhost:3000/health', (res) => { process.exit(res.statusCode === 200 ? 0 : 1) })"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    ulimits:
+      nofile:
+        soft: 65535
+        hard: 65535
+
+  # MySQL 数据库
+  mysql:
+    image: mysql:8.0
+    container_name: fastify-mysql
+    restart: always
+    environment:
+      - MYSQL_ROOT_PASSWORD=root123
+      - MYSQL_DATABASE=gameserver
+      - MYSQL_USER=mysql
+      - MYSQL_PASSWORD=mysql123
+    ports:
+      - "3306:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+      - ./db/init:/docker-entrypoint-initdb.d  # 初始化脚本
+    networks:
+      - fastify_net
+    command: --default-authentication-plugin=mysql_native_password
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "mysql", "-pmysql123"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+
+  # Redis 缓存（可选）
+  redis:
+    image: redis:7-alpine
+    container_name: fastify-redis
+    restart: always
+    ports:
+      - "6380:6379"  # 使用不同端口避免与 Centrifugo Redis 冲突
+    volumes:
+      - redis_data:/data
+    networks:
+      - fastify_net
+    command: redis-server --appendonly yes --requirepass "redis123"
+    healthcheck:
+      test: ["CMD", "redis-cli", "-a", "redis123", "ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+
+  # Nginx 反向代理（可选）
+  nginx:
+    image: nginx:alpine
+    container_name: fastify-nginx
+    restart: always
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./nginx/ssl:/etc/nginx/ssl:ro  # SSL 证书目录
+    depends_on:
+      - fastify-api
+    networks:
+      - fastify_net
+    profiles:
+      - production
+
+volumes:
+  mysql_data:
+  redis_data:
+
+networks:
+  fastify_net:
+    driver: bridge
+  centrifugo_net:
+    external: true  # 引用外部的 Centrifugo 网络

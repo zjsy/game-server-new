@@ -1,0 +1,29 @@
+{
+  "admin": {
+    "enabled": true,
+    "password": "admin123",
+    "secret": "adminsupersecret"
+  },
+  "client": {
+    "token": {
+      "hmac_secret_key": "my_secret"
+    },
+    "allowed_origins": ["*"]
+  },
+  "http_api": {
+    "key": "my_api_key"
+  },
+  "engine": {
+    "type": "redis",
+    "redis": {
+      "address": [
+        "redis:6379"
+      ]
+    }
+  },
+  "channel": {
+    "without_namespace": {
+      "allow_subscribe_for_client": true
+    }
+  }
+}

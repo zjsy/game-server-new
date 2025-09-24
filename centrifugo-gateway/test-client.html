@@ -1,0 +1,340 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>Centrifugo 集群测试客户端</title>
+    <script src="https://unpkg.com/centrifuge@5.4.0/dist/centrifuge.js"></script>
+    <!-- <script src="https://unpkg.com/jsonwebtoken@9.0.2"></script> -->
+    <style>
+      body {
+        font-family: Arial, sans-serif;
+        max-width: 800px;
+        margin: 0 auto;
+        padding: 20px;
+      }
+      .status {
+        padding: 10px;
+        margin: 10px 0;
+        border-radius: 5px;
+      }
+      .connected {
+        background-color: #d4edda;
+        color: #155724;
+      }
+      .disconnected {
+        background-color: #f8d7da;
+        color: #721c24;
+      }
+      .message {
+        background-color: #f8f9fa;
+        padding: 10px;
+        margin: 5px 0;
+        border-left: 3px solid #007bff;
+      }
+      button {
+        background-color: #007bff;
+        color: white;
+        border: none;
+        padding: 10px 20px;
+        margin: 5px;
+        cursor: pointer;
+        border-radius: 3px;
+      }
+      button:hover {
+        background-color: #0056b3;
+      }
+      input[type="text"] {
+        padding: 8px;
+        margin: 5px;
+        border: 1px solid #ccc;
+        border-radius: 3px;
+        width: 200px;
+      }
+      #messages {
+        height: 300px;
+        overflow-y: auto;
+        border: 1px solid #ccc;
+        padding: 10px;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>Centrifugo 集群测试客户端</h1>
+
+    <div id="status" class="status disconnected">未连接</div>
+
+    <div>
+      <h3>连接设置</h3>
+      <label>服务器地址: </label>
+      <input
+        type="text"
+        id="serverUrl"
+        value="ws://localhost:8000/connection/websocket"
+      />
+      <button onclick="connect()">连接</button>
+      <button onclick="disconnect()">断开连接</button>
+    </div>
+
+    <div>
+      <h3>频道订阅</h3>
+      <label>频道名称: </label>
+      <input type="text" id="channelName" value="public:chat" />
+      <button onclick="subscribe()">订阅</button>
+      <button onclick="unsubscribe()">取消订阅</button>
+    </div>
+
+    <div>
+      <h3>发送消息</h3>
+      <label>消息内容: </label>
+      <input type="text" id="messageText" value="Hello from client!" />
+      <button onclick="publishMessage()">发送消息</button>
+    </div>
+
+    <div>
+      <h3>连接信息</h3>
+      <button onclick="getInfo()">获取连接信息</button>
+      <button onclick="getPresence()">获取在线用户</button>
+      <button onclick="getHistory()">获取历史消息</button>
+    </div>
+
+    <div>
+      <h3>消息日志</h3>
+      <div id="messages"></div>
+      <button onclick="clearMessages()">清空日志</button>
+    </div>
+
+    <script>
+      let centrifuge = null;
+      let subscription = null;
+      let currentChannel = null;
+
+      function log(message, type = "info") {
+        const messagesDiv = document.getElementById("messages");
+        const messageDiv = document.createElement("div");
+        messageDiv.className = "message";
+        messageDiv.innerHTML = `<strong>[${new Date().toLocaleTimeString()}]</strong> ${message}`;
+        messagesDiv.appendChild(messageDiv);
+        messagesDiv.scrollTop = messagesDiv.scrollHeight;
+      }
+
+      function updateStatus(isConnected) {
+        const statusDiv = document.getElementById("status");
+        if (isConnected) {
+          statusDiv.textContent = "已连接到集群";
+          statusDiv.className = "status connected";
+        } else {
+          statusDiv.textContent = "未连接";
+          statusDiv.className = "status disconnected";
+        }
+      }
+      // var jwt = require("jsonwebtoken");
+      // function generateToken() {
+      //   const secret = "supersecretkey"; // 来自 config.json
+      //   const payload = {
+      //     sub: "user123", // 用户ID
+      //     exp: Math.floor(Date.now() / 1000) + 60 * 60, // 1小时后过期
+      //   };
+
+      //   const token = jwt.sign(payload, secret);
+      // }
+      function connect() {
+        const serverUrl = document.getElementById("serverUrl").value;
+
+        if (centrifuge) {
+          disconnect();
+        }
+
+        centrifuge = new Centrifuge(serverUrl, {
+          // 集群模式下的配置
+          debug: true,
+          token:
+            "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM3MjIiLCJleHAiOjE3NTkxNzE5MTUsImlhdCI6MTc1ODU2NzExNX0.yqgMnJRGUeOFa_meet8kEdo7VimBxWm5855bvFdZjtw",
+        });
+
+        centrifuge.on("connecting", function (ctx) {
+          log(`正在连接到服务器... (${ctx.code}, ${ctx.reason})`);
+        });
+
+        centrifuge.on("connected", function (ctx) {
+          log(
+            `✅ 已连接到集群! 客户端ID: ${ctx.client}, 传输方式: ${ctx.transport}`
+          );
+          updateStatus(true);
+        });
+
+        centrifuge.on("disconnected", function (ctx) {
+          log(`❌ 与集群断开连接 (${ctx.code}, ${ctx.reason})`);
+          updateStatus(false);
+        });
+
+        centrifuge.on("error", function (ctx) {
+          log(`❌ 连接错误: ${ctx.message}`, "error");
+        });
+
+        centrifuge.connect();
+      }
+
+      function disconnect() {
+        if (centrifuge) {
+          centrifuge.disconnect();
+          centrifuge = null;
+          updateStatus(false);
+          log("主动断开连接");
+        }
+      }
+
+      function subscribe() {
+        if (!centrifuge) {
+          log("❌ 请先连接到服务器", "error");
+          return;
+        }
+
+        const channelName = document.getElementById("channelName").value;
+
+        if (subscription) {
+          unsubscribe();
+        }
+
+        subscription = centrifuge.newSubscription(channelName);
+        currentChannel = channelName;
+
+        subscription.on("publication", function (ctx) {
+          log(`📨 收到消息 [${channelName}]: ${JSON.stringify(ctx.data)}`);
+        });
+
+        subscription.on("subscribing", function (ctx) {
+          log(`正在订阅频道 ${channelName}...`);
+        });
+
+        subscription.on("subscribed", function (ctx) {
+          log(`✅ 已订阅频道 ${channelName}`);
+        });
+
+        subscription.on("unsubscribed", function (ctx) {
+          log(`已取消订阅频道 ${channelName} (${ctx.code}, ${ctx.reason})`);
+        });
+
+        subscription.on("error", function (ctx) {
+          log(`❌ 订阅错误: ${ctx.message}`, "error");
+        });
+
+        subscription.subscribe();
+      }
+
+      function unsubscribe() {
+        if (subscription) {
+          subscription.unsubscribe();
+          subscription = null;
+          currentChannel = null;
+          log("已取消订阅");
+        }
+      }
+
+      function publishMessage() {
+        if (!centrifuge) {
+          log("❌ 请先连接到服务器", "error");
+          return;
+        }
+
+        const channelName = document.getElementById("channelName").value;
+        const messageText = document.getElementById("messageText").value;
+
+        const data = {
+          text: messageText,
+          user: `client_${Math.random().toString(36).substr(2, 9)}`,
+          timestamp: new Date().toISOString(),
+        };
+
+        centrifuge
+          .publish(channelName, data)
+          .then(function () {
+            log(`✅ 消息发送成功到频道 ${channelName}`);
+            document.getElementById("messageText").value = "";
+          })
+          .catch(function (err) {
+            log(`❌ 消息发送失败: ${err.message}`, "error");
+          });
+      }
+
+      function getInfo() {
+        if (!centrifuge) {
+          log("❌ 请先连接到服务器", "error");
+          return;
+        }
+
+        log(`连接状态: ${centrifuge.state}`);
+        log(`连接URL: ${centrifuge._config.url}`);
+        log(
+          `传输方式: ${
+            centrifuge._transport ? centrifuge._transport.name() : "未知"
+          }`
+        );
+      }
+
+      function getPresence() {
+        if (!subscription || !currentChannel) {
+          log("❌ 请先订阅频道", "error");
+          return;
+        }
+
+        subscription
+          .presence()
+          .then(function (result) {
+            log(
+              `📋 频道 ${currentChannel} 在线用户数: ${
+                Object.keys(result.presence).length
+              }`
+            );
+            Object.keys(result.presence).forEach((clientId) => {
+              const client = result.presence[clientId];
+              log(
+                `👤 用户: ${clientId}, 连接时间: ${new Date(
+                  client.connectedAt * 1000
+                ).toLocaleTimeString()}`
+              );
+            });
+          })
+          .catch(function (err) {
+            log(`❌ 获取在线用户失败: ${err.message}`, "error");
+          });
+      }
+
+      function getHistory() {
+        if (!subscription || !currentChannel) {
+          log("❌ 请先订阅频道", "error");
+          return;
+        }
+
+        subscription
+          .history()
+          .then(function (result) {
+            log(
+              `📚 频道 ${currentChannel} 历史消息数: ${result.publications.length}`
+            );
+            result.publications.forEach((pub, index) => {
+              log(`📜 历史消息 ${index + 1}: ${JSON.stringify(pub.data)}`);
+            });
+          })
+          .catch(function (err) {
+            log(`❌ 获取历史消息失败: ${err.message}`, "error");
+          });
+      }
+
+      function clearMessages() {
+        document.getElementById("messages").innerHTML = "";
+      }
+
+      // 页面加载完成后的初始化
+      window.onload = function () {
+        log("🚀 Centrifugo 集群测试客户端已就绪");
+        log('💡 提示: 先点击"连接"按钮连接到集群，然后订阅频道进行测试');
+      };
+
+      // 页面关闭时清理连接
+      window.onbeforeunload = function () {
+        if (centrifuge) {
+          centrifuge.disconnect();
+        }
+      };
+    </script>
+  </body>
+</html>

@@ -1,0 +1,71 @@
+{
+  "admin": {
+    "enabled": true,
+    "password": "admin123",
+    "secret": "adminsupersecret"
+  },
+  "client": {
+    "token": {
+      "hmac_secret_key": "supersecretkey"
+    },
+    "allowed_origins": ["*"],
+    "ping_interval": "25s",
+    "pong_timeout": "8s",
+    "expired_close_delay": "25s",
+    "expired_sub_close_delay": "25s",
+    "stale_close_delay": "10s"
+  },
+  "http_api": {
+    "key": "my_api_key"
+  },
+  "engine": {
+    "type": "memory"
+  },
+  "broker": {
+    "enabled": true,
+    "type": "nats",
+    "nats": {
+      "url": "nats://nats:4222",
+      "dial_timeout": "5s",
+      "write_timeout": "5s"
+    }
+  },
+  "channel": {
+    "without_namespace": {
+      "allow_subscribe_for_client": true,
+      "allow_publish_for_client": false,
+      "presence": false,
+      "join_leave": false,
+      "history_size": 0,
+      "history_ttl": "0s"
+    },
+    "namespaces": [
+      {
+        "name": "public",
+        "allow_subscribe_for_client": true,
+        "allow_publish_for_subscriber": true,
+        "presence": true,
+        "join_leave": true,
+        "history_size": 50,
+        "history_ttl": "5m0s"
+      },
+      {
+        "name": "chat",
+        "allow_subscribe_for_client": true,
+        "allow_publish_for_subscriber": true,
+        "presence": true,
+        "join_leave": true,
+        "force_push_join_leave": true,
+        "history_size": 100,
+        "history_ttl": "10m0s"
+      }
+    ]
+  },
+  "websocket": {
+    "compression": true,
+    "compression_min_size": 1024
+  },
+  "log": {
+    "level": "info"
+  }
+}
