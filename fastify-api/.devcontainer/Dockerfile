@@ -14,7 +14,7 @@ RUN apk add --no-cache \
     g++
 
 # 安装 pnpm
-RUN npm install -g pnpm
+# RUN npm install -g pnpm
 
 # 创建开发用户
 RUN addgroup -g 1001 -S fastify && \

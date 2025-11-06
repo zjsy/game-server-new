@@ -1,67 +1,27 @@
-````markdown
-# _PROJECT_NAME_
+# Getting Started with [Fastify-CLI](https://www.npmjs.com/package/fastify-cli)
+This project was bootstrapped with Fastify-CLI.
 
-## Prerequisites
+## Available Scripts
 
-- Node.js v22
-- PNPM v10
+In the project directory, you can run:
 
-## Environment Setup
+### `npm run dev`
 
-1. Copy the example environment file:
-```sh
-$ cp .env.example .env
-```
+To start the app in dev mode.\
+Open [http://localhost:3000](http://localhost:3000) to view it in the browser.
 
-2. Edit the `.env` file with your configuration:
-```env
-NODE_ENV=development
-HOST=127.0.0.1
-PORT=3000
-SITE_URL=http://127.0.0.1:5173
-```
+### `npm start`
 
-## Usage
+For production mode
 
-```sh
-$ pnpm install
-```
+### `npm run test`
 
-```sh
-$ pnpm dev
-```
+Run the test cases.
 
-```sh
-$ pnpm build
-```
+## Learn More
 
-```sh
-$ pnpm preview
-```
+To learn Fastify, check out the [Fastify documentation](https://fastify.dev/docs/latest/).
 
-```sh
-$ pnpm lint
-```
 
-```sh
-$ pnpm check
-```
-
-```sh
-$ pnpm test
-```
-
-## Environment Variables
-
-| Variable | Description | Default | Required |
-|----------|-------------|---------|----------|
-| `NODE_ENV` | Environment mode | `development` | Yes |
-| `HOST` | Server host | `127.0.0.1` | Yes |
-| `PORT` | Server port | `3000` | Yes |
-| `SITE_URL` | Site URL for CORS | `http://127.0.0.1:5173` | Yes |
-| `DATABASE_URL` | Database connection string | - | No |
-| `API_BASE_URL` | External API base URL | - | No |
-| `JWT_SECRET` | JWT signing secret | - | No |
-| `LOG_LEVEL` | Log level | `info` | No |
-
-````
+Others
+1. node项目不推荐应用内写文件

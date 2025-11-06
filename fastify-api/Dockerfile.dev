@@ -4,14 +4,11 @@ FROM node:22-alpine
 # Set working directory
 WORKDIR /app
 
-# Install pnpm
-RUN npm install -g pnpm
-
 # Copy package files
-COPY package.json pnpm-lock.yaml ./
+COPY package.json package-lock.json ./
 
 # Install all dependencies (including dev dependencies)
-RUN pnpm install --frozen-lockfile
+RUN npm ci
 
 # Create non-root user
 RUN addgroup -g 1001 -S nodejs
@@ -27,4 +24,4 @@ USER fastify
 EXPOSE 3000 9229
 
 # Default command (can be overridden in docker-compose)
-CMD ["pnpm", "run", "dev"]
+CMD ["npm", "run", "dev"]

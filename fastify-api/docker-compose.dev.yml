@@ -20,7 +20,7 @@ services:
       - ./logs:/app/logs
     networks:
       - fastify_dev_net
-    command: pnpm run dev
+    command: npm run dev
 
   # MySQL 开发数据库
   mysql-dev:

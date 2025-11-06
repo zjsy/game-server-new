@@ -1,28 +1,44 @@
-import cors from '@fastify/cors';
-import helmet from '@fastify/helmet';
-import rateLimit from '@fastify/rate-limit';
-import underPressure from '@fastify/under-pressure';
-import fastify from 'fastify';
+import { join, dirname } from 'node:path'
+import { fileURLToPath } from 'node:url'
+import AutoLoad, { AutoloadPluginOptions } from '@fastify/autoload'
+import { FastifyPluginAsync, FastifyServerOptions } from 'fastify'
 
-import error from '~/plugins/error';
-import router from '~/plugins/router';
+const __filename = fileURLToPath(import.meta.url)
+const __dirname = dirname(__filename)
 
-export default () => {
-  const app = fastify({
-    logger: {
-      transport: {
-        target: '@fastify/one-line-logger',
-      },
-    },
-  });
+export interface AppOptions
+  extends FastifyServerOptions,
+  Partial<AutoloadPluginOptions> {}
 
-  app.register(cors, { origin: new RegExp(process.env.SITE_URL, 'gi') });
-  app.register(helmet);
-  app.register(rateLimit);
-  app.register(underPressure, { exposeStatusRoute: '/api/healthz' });
+// Pass --options via CLI arguments in command to enable these options.
+const options: AppOptions = {
+}
 
-  app.register(error);
-  app.register(router);
+const app: FastifyPluginAsync<AppOptions> = async (
+  fastify,
+  opts
+): Promise<void> => {
+  // Place here your custom code!
 
-  return app;
-};
+  // Do not touch the following lines
+
+  // This loads all plugins defined in plugins
+  // those should be support plugins that are reused
+  // through your application
+  // eslint-disable-next-line no-void
+  void fastify.register(AutoLoad, {
+    dir: join(__dirname, 'plugins'),
+    options: opts,
+  })
+
+  // This loads all plugins defined in routes
+  // define your routes in one of these
+  // eslint-disable-next-line no-void
+  void fastify.register(AutoLoad, {
+    dir: join(__dirname, 'routes'),
+    options: opts,
+  })
+}
+
+export default app
+export { app, options }

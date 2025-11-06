@@ -49,8 +49,6 @@ services:
       - "3306:3306"
     volumes:
       - mysql_dev_data:/var/lib/mysql
-      - ../db/init:/docker-entrypoint-initdb.d
-      - ../db/seeds:/docker-entrypoint-seeds.d
     networks:
       - devcontainer_net
     command: --default-authentication-plugin=mysql_native_password
@@ -74,16 +72,16 @@ services:
     command: redis-server --appendonly yes
 
   # 数据库管理工具
-  adminer:
-    image: adminer:latest
-    container_name: fastify-adminer-devcontainer
-    restart: unless-stopped
-    ports:
-      - "8080:8080"
-    networks:
-      - devcontainer_net
-    environment:
-      - ADMINER_DEFAULT_SERVER=mysql-dev
+  # adminer:
+  #   image: adminer:latest
+  #   container_name: fastify-adminer-devcontainer
+  #   restart: unless-stopped
+  #   ports:
+  #     - "8080:8080"
+  #   networks:
+  #     - devcontainer_net
+  #   environment:
+  #     - ADMINER_DEFAULT_SERVER=mysql-dev
 
 volumes:
   mysql_dev_data:

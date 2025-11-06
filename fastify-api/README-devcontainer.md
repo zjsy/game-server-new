@@ -45,7 +45,7 @@ fastify-api/
    └── 安装 VS Code 扩展
 
 2. 容器启动完成后
-   ├── 自动执行 pnpm install
+   ├── 自动执行 npm install
    ├── 挂载源码到容器内
    └── 配置调试环境
 
@@ -57,11 +57,11 @@ fastify-api/
 ### **启动应用**
 ```bash
 # 在 VS Code 终端中 (容器内)
-pnpm run dev
+npm run dev
 ```
 
 ### **调试应用**
-1. 启动开发服务器：`pnpm run dev`
+1. 启动开发服务器：`npm run dev`
 2. 按 `F5` 或点击 "Run and Debug"
 3. 选择 "Debug Fastify App"
 4. 在代码中设置断点即可调试
