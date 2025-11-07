@@ -8,14 +8,14 @@
     "test": "test"
   },
   "scripts": {
-    "pretest": "eslint",
+    "pretest": "eslint .",
     "test": "npm run build:ts && tsc -p test/tsconfig.json && c8 node --test -r ts-node/register \"test/**/*.ts\"",
     "start": "npm run build:ts && fastify start -l info dist/app.js",
     "build:ts": "tsc",
     "watch:ts": "tsc -w",
     "dev": "npm run build:ts && concurrently -k -p \"[{name}]\" -n \"TypeScript,App\" -c \"yellow.bold,cyan.bold\" \"npm:watch:ts\" \"npm:dev:start\"",
     "dev:start": "fastify start --ignore-watch=.ts$ -w -l info -P dist/app.js",
-    "lint": "eslint --fix"
+    "lint": "eslint . --fix"
   },
   "keywords": [],
   "author": "",
@@ -23,6 +23,7 @@
   "dependencies": {
     "@fastify/autoload": "^6.0.0",
     "@fastify/env": "^5.0.3",
+    "@fastify/jwt": "^10.0.0",
     "@fastify/mysql": "^5.0.2",
     "@fastify/redis": "^7.1.0",
     "@fastify/sensible": "^6.0.0",
@@ -39,6 +40,7 @@
     "@types/node": "^22.1.0",
     "c8": "^10.1.2",
     "concurrently": "^9.0.0",
+    "eslint": "^9.39.1",
     "fastify-tsconfig": "^3.0.0",
     "neostandard": "^0.12.2",
     "pino-pretty": "^13.1.2",

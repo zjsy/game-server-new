@@ -10,9 +10,9 @@ const root: FastifyPluginAsync = async (fastify, _opts): Promise<void> => {
         database: {
           write: fastify.config.RDS_HOST_WRITE,
           read: fastify.config.RDS_HOST_READ,
-          name: fastify.config.DB_DATABASE
-        }
-      }
+          name: fastify.config.DB_DATABASE,
+        },
+      },
     }
   })
 }

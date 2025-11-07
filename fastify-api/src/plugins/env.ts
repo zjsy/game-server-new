@@ -82,6 +82,16 @@ const envSchema = {
       type: 'string',
       default: 'my_api_key',
     },
+
+    // JWT 鉴权配置
+    JWT_SECRET: {
+      type: 'string',
+      default: 'change_this_to_a_secure_secret_in_production',
+    },
+    JWT_EXPIRES_IN: {
+      type: 'string',
+      default: '24h',
+    },
   },
 }
 
@@ -103,6 +113,8 @@ export interface EnvironmentVariables {
   CENTRIFUGO_API_URL: string;
   CENTRIFUGO_WS_URL: string;
   CENTRIFUGO_API_KEY: string;
+  JWT_SECRET: string;
+  JWT_EXPIRES_IN: string;
 }
 
 // 扩展 Fastify 类型，使环境变量可通过 fastify.config 访问
