@@ -21,12 +21,43 @@ export async function jwtAuthMiddleware (request: FastifyRequest, reply: Fastify
 
     // JWT 验证成功，payload 会自动添加到 request.user
     const authRequest = request as AuthenticatedRequest
-    const payload = request.user as { tableNo?: string; tableId?: number }
+    const payload = request.user as { tableNo?: string; tableId?: number; sessionId?: string }
 
     authRequest.tableNo = payload.tableNo
     authRequest.tableId = payload.tableId
 
-    request.log.debug({ tableNo: payload.tableNo, tableId: payload.tableId }, 'JWT verified successfully')
+    // 验证 sessionId 是否存在于 Redis 中
+    if (!payload.sessionId) {
+      request.log.warn('Missing sessionId in JWT payload')
+      return reply.code(401).send({
+        error: 'Unauthorized',
+        message: 'Invalid token: missing session identifier',
+      })
+    }
+
+    // 从 Redis 中获取存储的 sessionId
+    const redisKey = `session:table:${payload.tableId}`
+    const storedSessionId = await request.server.redis.get(redisKey)
+
+    // 验证 sessionId 是否匹配
+    if (storedSessionId !== payload.sessionId) {
+      request.log.warn({
+        tableId: payload.tableId,
+        expectedSessionId: storedSessionId,
+        receivedSessionId: payload.sessionId
+      }, 'SessionId mismatch - another client has logged in')
+
+      return reply.code(401).send({
+        error: 'Unauthorized',
+        message: 'Session expired: another client has logged in',
+      })
+    }
+
+    request.log.debug({
+      tableNo: payload.tableNo,
+      tableId: payload.tableId,
+      sessionId: payload.sessionId
+    }, 'JWT and session verified successfully')
   } catch (err) {
     request.log.error({ err }, 'JWT verification failed')
     return reply.code(401).send({

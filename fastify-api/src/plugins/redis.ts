@@ -10,7 +10,9 @@ export default fp<FastifyRedisPluginOptions>(async (fastify) => {
     // 连接池配置
     maxRetriesPerRequest: 3,
     enableReadyCheck: true,
-    lazyConnect: false
+    lazyConnect: false,
+    db: fastify.config.REDIS_DB || 0,
+    keyPrefix: fastify.config.REDIS_PREFIX || 'FG:',
   })
 
   fastify.log.info({

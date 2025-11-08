@@ -109,6 +109,8 @@ export interface EnvironmentVariables {
   REDIS_HOST: string;
   REDIS_PORT: number;
   REDIS_PASSWORD: string;
+  REDIS_DB: number;
+  REDIS_PREFIX: string;
   FASTIFY_CLOSE_GRACE_DELAY: number;
   CENTRIFUGO_API_URL: string;
   CENTRIFUGO_WS_URL: string;

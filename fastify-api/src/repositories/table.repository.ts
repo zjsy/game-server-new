@@ -13,13 +13,14 @@ export class TableRepository extends BaseRepository {
   /**
    * 根据 table_no 查询桌台信息
    * @param tableNo 桌台编号
+   * @param fields 要查询的字段数组，默认查询所有字段
    * @returns 桌台信息或 null
    */
-  async findByTableNo (tableNo: string): Promise<Table | null> {
+  async findByTableNo (tableNo: string, fields?: (keyof Table)[]): Promise<Table | null> {
+    const selectFields = fields && fields.length > 0 ? fields.join(', ') : '*'
     const rows = await this.query<TableRow[]>(
-      'SELECT * FROM fg_game_table WHERE table_no = ? LIMIT 1',
-      [tableNo],
-      false // 使用读库
+      `SELECT ${selectFields} FROM fg_game_tables WHERE table_no = ? LIMIT 1`,
+      [tableNo]
     )
     return rows[0] || null
   }
@@ -33,7 +34,7 @@ export class TableRepository extends BaseRepository {
    */
   async updateLoginStatus (tableNo: string, token: string, loginIp: string): Promise<number> {
     return this.withConnection(async (conn) => {
-      const [result] = await conn.query<ResultSetHeader>(
+      const [result] = await conn.execute<ResultSetHeader>(
         `UPDATE fg_game_table 
          SET token = ?, login_ip = ?, is_login = 1, updated_at = NOW()
          WHERE table_no = ?`,
