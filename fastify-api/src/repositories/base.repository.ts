@@ -1,5 +1,5 @@
 import { FastifyInstance } from 'fastify'
-import { PoolConnection, ResultSetHeader } from 'mysql2/promise'
+import { PoolConnection, ResultSetHeader, RowDataPacket } from 'mysql2/promise'
 
 export class BaseRepository {
   constructor (protected fastify: FastifyInstance) {}
@@ -73,6 +73,86 @@ export class BaseRepository {
   }
 
   /**
+   * 单个记录获取
+   * @param table 表名
+   * @param where 查询条件
+   * @param fields 要查询的字段
+   * @param conn 可选的数据库连接
+   * @returns 单个记录或null
+   */
+  async find<T extends RowDataPacket, E = T>(
+    table: string,
+    where?: Partial<Pick<E, keyof E>>,
+    fields?: (keyof E)[],
+    conn?: PoolConnection
+  ): Promise<T | null> {
+    const selectFields = fields && fields.length > 0 ? fields.map(f => String(f)).join(', ') : '*'
+    let sql = `SELECT ${selectFields} FROM ${table}`
+    const values: unknown[] = []
+
+    // 构建 WHERE 子句
+    if (where && Object.keys(where).length > 0) {
+      const { whereClause, whereValues } = this.buildWhereClause(where)
+      sql += ` WHERE ${whereClause}`
+      values.push(...whereValues)
+    }
+
+    sql += ' LIMIT 1'
+
+    const rows = await this.query<T[]>(sql, values, { useWrite: false, conn })
+    return rows.length > 0 ? rows[0] : null
+  }
+
+  /**
+   * 多个记录获取
+   * @param table 表名
+   * @param where 查询条件
+   * @param fields 要查询的字段
+   * @param options 查询选项（分页、排序等）
+   * @param conn 可选的数据库连接
+   * @returns 记录数组
+   */
+  async get<T extends RowDataPacket, E = T>(
+    table: string,
+    where?: Partial<Pick<E, keyof E>>,
+    fields?: (keyof E)[],
+    options?: {
+      orderBy?: string
+      orderDirection?: 'ASC' | 'DESC'
+      limit?: number
+      offset?: number
+    },
+    conn?: PoolConnection
+  ): Promise<T[]> {
+    const selectFields = fields && fields.length > 0 ? fields.map(f => String(f)).join(', ') : '*'
+    let sql = `SELECT ${selectFields} FROM ${table}`
+    const values: unknown[] = []
+
+    // 构建 WHERE 子句
+    if (where && Object.keys(where).length > 0) {
+      const { whereClause, whereValues } = this.buildWhereClause(where)
+      sql += ` WHERE ${whereClause}`
+      values.push(...whereValues)
+    }
+
+    // 排序
+    if (options?.orderBy) {
+      const direction = options.orderDirection || 'ASC'
+      sql += ` ORDER BY ${options.orderBy} ${direction}`
+    }
+
+    // 分页
+    if (options?.limit) {
+      sql += ` LIMIT ${options.limit}`
+      if (options.offset) {
+        sql += ` OFFSET ${options.offset}`
+      }
+    }
+
+    return await this.query<T[]>(sql, values, { useWrite: false, conn })
+  }
+
+  /**
    * 单个记录更新
    * @param table 表名
    * @param data 要更新的数据
@@ -80,36 +160,45 @@ export class BaseRepository {
    * @param conn 可选的数据库连接
    * @returns 更新结果
    */
-  async update<T extends Record<string, unknown>> (
+  async update<E = Record<string, unknown>>(
     table: string,
-    data: Partial<T>,
-    where?: Partial<T>,
+    data: Partial<E>,
+    where?: Partial<E>,
     conn?: PoolConnection
   ): Promise<{ affectedRows: number; insertId?: number }> {
     if (!data || Object.keys(data).length === 0) {
       throw new Error('Update data cannot be empty')
     }
 
-    // 构建 SET 子句 - 使用泛型约束的 key
-    const setFields = Object.keys(data) as Array<keyof T>
+    // 构建 SET 子句
+    const setFields = Object.keys(data) as Array<keyof E>
     const setClause = setFields.map(field => `${String(field)} = ?`).join(', ')
     const setValues = setFields.map(field => data[field])
 
     let sql = `UPDATE ${table} SET ${setClause}`
     const values: unknown[] = [...setValues]
 
-    // 构建 WHERE 子句 - 使用泛型约束的 key
+    // 构建 WHERE 子句
     if (where && Object.keys(where).length > 0) {
-      const whereFields = Object.keys(where) as Array<keyof T>
-      const whereClause = whereFields.map(field => `${String(field)} = ?`).join(' AND ')
-      const whereValues = whereFields.map(field => where[field])
-
+      const { whereClause, whereValues } = this.buildWhereClause(where)
       sql += ` WHERE ${whereClause}`
       values.push(...whereValues)
     }
 
     const [result] = await this.execute(sql, values, conn)
     return result as { affectedRows: number; insertId?: number }
+  }
+
+  private buildWhereClause<T extends Record<string, unknown>>(
+    where: Partial<T>
+  ): { whereClause: string; whereValues: unknown[] } {
+    // if (!where || Object.keys(where).length === 0) {
+    //   return { clause: '', values: [] }
+    // }
+    const whereFields = Object.keys(where) as Array<keyof T>
+    const whereClause = whereFields.map(field => `${String(field)} = ?`).join(' AND ')
+    const whereValues = whereFields.map(field => where[field])
+    return { whereClause, whereValues }
   }
 
   protected get redis () {

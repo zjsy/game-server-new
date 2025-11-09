@@ -19,7 +19,7 @@ export enum NNBetType {
   player3Many,
 }
 
-export function getBullOddsForLimit (betType) {
+export function getBullOddsForLimit (betType:NNBetType):number {
   if (betType % 3 === 0) {
     return 5
   } else if (betType % 3 === 1) {

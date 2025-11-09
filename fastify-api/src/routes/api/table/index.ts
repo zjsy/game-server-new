@@ -1,9 +1,9 @@
 import { FastifyPluginAsync } from 'fastify'
 import type { AuthenticatedRequest } from '../../../middlewares/jwt-auth.js'
 import { jwtAuthMiddleware } from '../../../middlewares/jwt-auth.js'
-import { fail, success } from '../../../utils/http-utils.js'
+import { fail, ErrorCode, success } from '../../../utils/http-utils.js'
 import { TableService } from '../../../services/table.service.js'
-import type { TableLoginRequest } from '../../../types/table.types.js'
+import type { DealerLoginRequest, TableLoginRequest } from '../../../types/table.types.js'
 
 const tableRoute: FastifyPluginAsync = async (fastify) => {
   const tableService = new TableService(fastify)
@@ -32,7 +32,7 @@ const tableRoute: FastifyPluginAsync = async (fastify) => {
       return success(result, 'login successful')
     } catch (err) {
       fastify.log.error({ err, tableNo: data.t }, 'Table login failed')
-      return reply.send(fail(400, err instanceof Error ? err.message : 'login failed'))
+      return reply.send(fail(ErrorCode.UNKNOWN_ERR))
     }
   })
 
@@ -41,23 +41,23 @@ const tableRoute: FastifyPluginAsync = async (fastify) => {
     preHandler: [jwtAuthMiddleware],
   }, async (request, reply) => {
     const authRequest = request as AuthenticatedRequest
-    const tableNo = authRequest.tableNo
-    const data = request.body as { dealerNo: string }
+    const tableId = authRequest.tableId
+    const data = request.body as DealerLoginRequest
 
-    if (!tableNo) {
+    if (!data.dealerNo) {
       return reply.code(401).send({
         error: 'Unauthorized',
         message: '未找到桌台信息',
       })
     }
 
-    fastify.log.info({ tableNo, dealerNo: data.dealerNo }, 'Dealer login request')
+    fastify.log.info({ tableId, dealerNo: data.dealerNo }, 'Dealer login request')
 
     try {
-      const result = await tableService.dealerLogin(tableNo, data.dealerNo)
+      const result = await tableService.dealerLogin(tableId, data.dealerNo)
       return success(result, 'Dealer登录成功')
     } catch (err) {
-      fastify.log.error({ err, tableNo }, 'Dealer login failed')
+      fastify.log.error({ err }, 'Dealer login failed')
       return reply.code(500).send({
         error: 'Internal Server Error',
         message: err instanceof Error ? err.message : 'Dealer登录失败',

@@ -14,7 +14,7 @@ declare module 'fastify' {
 }
 
 const encryptionPlugin: FastifyPluginAsync = async (fastify) => {
-  const secretKey = fastify.config.AES_SECRET_KEY
+  const secretKey = ''// fastify.config.AES_SECRET_KEY
 
   if (!secretKey) {
     throw new Error('AES_SECRET_KEY is not configured in environment')

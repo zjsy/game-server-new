@@ -1,10 +1,11 @@
 import { FastifyInstance } from 'fastify'
-import { Round, TableLoginResponse } from '../types/table.types.js'
+import { DealerLoginResponse, Round, TableLoginResponse } from '../types/table.types.js'
 import { TableRepository } from '../repositories/table.repository.js'
 import crypto from 'crypto'
 import { GameType, RoundStatus } from '../constants/game.constants.js'
 import { GameRepository } from '../repositories/game.repository.js'
 import { BaccBetType } from '../constants/bacc.constants.js'
+import { ErrorCode } from '../utils/http-utils.js'
 
 export class TableService {
   private tableRepository: TableRepository
@@ -28,7 +29,7 @@ export class TableService {
     loginIp: string
   ): Promise<TableLoginResponse> {
     // 1. 查询桌台信息
-    const table = await this.tableRepository.findByTableNo(tableNo, [
+    const table = await this.tableRepository.findTable({ table_no: tableNo }, [
       'id',
       'table_no',
       'table_name',
@@ -93,7 +94,7 @@ export class TableService {
     await this.fastify.redis.set(redisKey, sessionId, 'EX', 24 * 60 * 60) // 24小时过期
 
     // 5. 更新桌台登录状态
-    await this.tableRepository.updateLoginStatus(table.table_no, token, loginIp)
+    await this.tableRepository.updateTable(table.table_no, token, loginIp)
 
     // 构造返回数据
     let roundInfo: null | Round = null
@@ -205,9 +206,46 @@ export class TableService {
    * 荷官登录
    * TODO: 实现荷官登录逻辑
    */
-  async dealerLogin (tableNo: string, dealerNo: string): Promise<unknown> {
-    this.fastify.log.info({ tableNo, dealerNo }, 'Dealer login - Not implemented')
-    throw new Error('Dealer login not implemented yet')
+  async dealerLogin (tableId:number, dealerNo: string): Promise<DealerLoginResponse> {
+    const dealer = await this.tableRepository.findDealerByNo(dealerNo, ['id', 'dealer_no', 'nickname', 'avatar', 'status', 'is_login'])
+    if (!dealer || dealer.status === 0) {
+      throw new Error('dealer not found or disabled')
+    }
+
+    // const tableInfo = await this.tableRepository.findTable({ id: tableId })
+    // // 获取登陆dealer的编码，判断是否是同一个
+    // let dealerInfo = null
+    // if (tableInfo?.login_dealer) {
+    //   dealerInfo = JSON.parse(tableInfo.dealerInfo)
+    // }
+
+    // // 该桌同dealer的时候可以换衣服
+    // if (dealer.is_login === 1) {
+    //   return siteErrorReturn(SiteErrorCode.USER_IS_LOGGED)
+    // }
+    // dealer.is_login = 1
+    // saveDealer(dealer)
+
+    // // 退出当前dealer
+    // if (tableInfo.login_dealer) {
+    //   updateDealer({ id: Number(tableInfo.login_dealer) }, { is_login: 0 })
+    // }
+
+    // // 更新桌dealer，方便直接从数据库取数据
+    // updateTableInfoRedis(tableId, {
+    //   login_dealer: dealer.id,
+    //   dealerInfo: JSON.stringify({ dealer_no: dealer.dealer_no, nickname: dealer.nickname, avatar: dealer.avatar }),
+    // })
+    // updateTableInfo({ id: tableId }, { is_login: 1, login_dealer: dealer.id })
+    // // 发送消息
+    // // this.channelService.abroadcast('connector', PushConst.CHANGE_DEALER, {
+    // //   tableId,
+    // //   dealerNo: dealer.dealer_no,
+    // //   dealerName: dealer.nickname,
+    // //   dealerAvatar: dealer.avatar,
+    // // })
+    // const resourceUrl = await getGameConfig(ConfigKey.ResourceUrl)
+    // return siteSuccessReturn({ nickname: dealer.nickname, avatar: resourceUrl + dealer.avatar })
   }
 
   /**
@@ -245,7 +283,7 @@ export class TableService {
    */
   async refreshToken (tableNo: string, loginIp: string): Promise<{ token: string; expiresIn: string }> {
     // 1. 查询桌台信息
-    const table = await this.tableRepository.findByTableNo(tableNo)
+    const table = await this.tableRepository.findTable({ table_no: tableNo })
     if (!table) {
       throw new Error('table not found')
     }
@@ -279,7 +317,7 @@ export class TableService {
     await this.fastify.redis.set(redisKey, sessionId, 'EX', 24 * 60 * 60) // 24小时过期
 
     // 6. 更新桌台的 token
-    await this.tableRepository.updateLoginStatus(table.table_no, token, loginIp)
+    await this.tableRepository.updateTable(table.table_no, token, loginIp)
 
     this.fastify.log.info({ tableNo, loginIp }, 'Token refreshed successfully')
 

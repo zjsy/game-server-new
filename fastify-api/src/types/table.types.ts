@@ -1,4 +1,6 @@
 // 桌实体类型
+import { RowDataPacket } from 'mysql2'
+
 export interface Table {
   id: number;
   table_no: string;
@@ -27,6 +29,16 @@ export interface Table {
   current_shoe: number; // 靴序号
   current_round_id: number; // 靴序号
 }
+export interface TableRow extends RowDataPacket, Table { }
+export interface Dealer {
+  id: number
+  dealer_no: string
+  nickname: string
+  status: number
+  avatar: string
+  is_login: number
+}
+export interface DealerRow extends RowDataPacket, Dealer { }
 
 export interface TableLoginRequest {
   t: string // table_no
