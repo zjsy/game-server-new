@@ -1,3 +1,5 @@
+import { BaccDetails } from '../types/common.types.js'
+
 /**
  * 百家乐赔率
  */
@@ -128,8 +130,8 @@ const bonusOdds = {
   9: 30,
 }
 
-export function getBonusOdds (diff:keyof typeof bonusOdds) {
-  return bonusOdds[diff]
+export function getBonusOdds (diff:number) {
+  return bonusOdds[diff as keyof typeof bonusOdds] || 0
 }
 
 export function getBaccOdds (beytype: BaccBetType) {
@@ -159,8 +161,20 @@ export function getBaccOddsForLimit (betType: BaccBetType) {
   return odds
 }
 
-// 暂时没用
-export function parseBaccResult (details: { b: number[]; p: number[] }, points: { bp: number; pp: number }) {
+function getBaccPoint (cards:number[]) {
+  return cards.reduce((prev, next) => {
+    return prev + (next % 13 > 9 || next % 13 === 0 ? 0 : next % 13)
+  }, 0) % 10
+}
+
+export function parseBaccPoint (details: BaccDetails) {
+  return {
+    bp: getBaccPoint(details.b),
+    pp: getBaccPoint(details.p),
+  }
+}
+
+export function parseBaccResult (details: BaccDetails, points: { bp: number; pp: number }) {
   const bankerPokers = details.b
   const playerPokers = details.p
   const bP = points.bp
@@ -285,4 +299,187 @@ export function parseBaccResult (details: { b: number[]; p: number[] }, points: 
   }
 
   return resArr
+}
+
+export function calWinloseForBacc (betDetails: Record<string, number>, hitRes:number[], details: BaccDetails, points: { bp: number; pp: number } | null) {
+  let winLose = 0
+  for (const betKey in betDetails) {
+    const betType = Number(betKey)
+    const betAmount = betDetails[betKey]
+    if (betType === BaccBetType.banker) {
+      if (hitRes.includes(BaccBetType.banker)) {
+        winLose += betAmount * 0.95
+      } else if (hitRes.includes(BaccBetType.player)) {
+        winLose -= betAmount
+      }
+    } else if (betType === BaccBetType.player) {
+      if (hitRes.includes(BaccBetType.player)) {
+        winLose += betAmount
+      } else if (hitRes.includes(BaccBetType.banker)) {
+        winLose -= betAmount
+      }
+    } else if (betType === BaccBetType.super6) {
+      if (points) {
+        if (hitRes.includes(BaccBetType.banker) && points.bp === 6) {
+          if (details.b.length === 2) {
+            winLose += 12 * betAmount
+          } else {
+            winLose += 20 * betAmount
+          }
+        } else {
+          winLose -= betAmount
+        }
+      }
+    } else if (betType === BaccBetType.noCommonBanker) {
+      if (points) {
+        if (hitRes.includes(BaccBetType.banker)) {
+          if (points.bp === 6) {
+            winLose += 0.5 * betAmount
+          } else {
+            winLose += betAmount
+          }
+        } else if (hitRes.includes(BaccBetType.player)) {
+          winLose -= betAmount
+        }
+      }
+    } else if (betType === BaccBetType.bankerBonus) {
+      if (points) {
+        if (hitRes.includes(BaccBetType.banker)) {
+          const bPoint = points.bp
+          const pPoint = points.pp
+          const isBNatural = bPoint > 7 && details.b.length === 2
+          if (isBNatural) {
+            winLose += betAmount
+          } else {
+            const diff = bPoint - pPoint
+            if (diff > 3) {
+              winLose += betAmount * getBonusOdds(diff)
+            } else {
+              winLose -= betAmount
+            }
+          }
+        } else if (hitRes.includes(BaccBetType.tie)) {
+          const isNaturalTie = points.pp > 7 && points.bp > 7
+          if (isNaturalTie) {
+            winLose += betAmount
+          } else {
+            winLose -= betAmount
+          }
+        } else {
+          winLose -= betAmount
+        }
+      }
+    } else if (betType === BaccBetType.playerBonus) {
+      if (points) {
+        if (hitRes.includes(BaccBetType.player)) {
+          const bPoint = points.bp
+          const pPoint = points.pp
+          const isPNatural = pPoint > 7 && details.p.length === 2
+          if (isPNatural) {
+            winLose += betAmount
+          } else {
+            const diff = pPoint - bPoint
+            if (diff > 3) {
+              winLose += betAmount * getBonusOdds(diff)
+            } else {
+              winLose -= betAmount
+            }
+          }
+        } else if (hitRes.includes(BaccBetType.tie)) {
+          const isNaturalTie = points.pp > 7 && points.bp > 7
+          if (isNaturalTie) {
+            winLose += betAmount
+          } else {
+            winLose -= betAmount
+          }
+        } else {
+          winLose -= betAmount
+        }
+      }
+    } else if (betType === BaccBetType.bNatural) {
+      if (points) {
+        const isNatural = details.b.length === 2 && points.bp > 7
+        if (hitRes.includes(BaccBetType.banker) && isNatural) {
+          winLose += 4 * betAmount
+        } else if (hitRes.includes(BaccBetType.player)) {
+          winLose -= betAmount
+        }
+      }
+    } else if (betType === BaccBetType.pNatural) {
+      if (points) {
+        const isNatural = details.p.length === 2 && points.pp > 7
+        if (hitRes.includes(BaccBetType.player) && isNatural) {
+          winLose += 4 * betAmount
+        } else if (hitRes.includes(BaccBetType.player)) {
+          winLose -= betAmount
+        }
+      }
+    } else if (betType === BaccBetType.tigerPair) {
+      if (hitRes.includes(BaccBetType.playerPair)) {
+        if (hitRes.includes(BaccBetType.bankerPair)) {
+          if (details.b[0] === details.p[0]) {
+            winLose += 100 * betAmount
+          } else {
+            winLose += 20 * betAmount
+          }
+        } else {
+          winLose += 4 * betAmount
+        }
+      } else {
+        if (hitRes.includes(BaccBetType.bankerPair)) {
+          winLose += 4 * betAmount
+        } else {
+          winLose -= betAmount
+        }
+      }
+    } else if (betType === BaccBetType.ccPlayer) {
+      if (points) {
+        if (hitRes.includes(BaccBetType.player)) {
+          // win
+          const pPoint = points.pp
+          const odds = pPoint === 9 ? 8.55 : pPoint
+          winLose += odds * betAmount
+        } else if (hitRes.includes(BaccBetType.banker)) {
+          // lose
+          const bPoint = points.bp
+          winLose -= bPoint * betAmount
+        }
+      }
+    } else if (betType === BaccBetType.ccBanker) {
+      if (points) {
+        if (hitRes.includes(BaccBetType.banker)) {
+          // win
+          const bPoint = points.bp
+          const odds = bPoint === 9 ? 8.55 : bPoint
+          winLose += odds * betAmount
+        } else if (hitRes.includes(BaccBetType.player)) {
+          // lose
+          const pPoint = points.pp
+          winLose -= pPoint * betAmount
+        }
+      }
+    } else {
+      if (hitRes.includes(betType)) {
+        // 命中直接按倍率加钱并返回本金
+        winLose += betAmount * getBaccOdds(betType)
+      } else {
+        winLose -= betAmount
+      }
+    }
+  }
+  return winLose
+}
+
+export function calRollingForBacc (totalBet:number, betDetails: Record<string, number>, hitRes:number[]) {
+  const playerBet = betDetails[BaccBetType.player] ? betDetails[BaccBetType.player] : 0
+  const bankerBet = betDetails[BaccBetType.banker] ? betDetails[BaccBetType.banker] : 0
+  const noCommBankerBet = betDetails[BaccBetType.noCommonBanker] ? betDetails[BaccBetType.noCommonBanker] : 0
+  const bankerBonus = betDetails[BaccBetType.bankerBonus] ? betDetails[BaccBetType.bankerBonus] : 0
+  const playerBonus = betDetails[BaccBetType.playerBonus] ? betDetails[BaccBetType.playerBonus] : 0
+  if (hitRes.includes(BaccBetType.tie)) {
+    // 开和时候，庄闲下注不算洗码
+    return totalBet - playerBet - bankerBet - noCommBankerBet - bankerBonus - playerBonus
+  } else {
+    return totalBet - playerBet - bankerBet - noCommBankerBet + Math.abs(playerBet - bankerBet - noCommBankerBet)
+  }
 }

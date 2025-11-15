@@ -1,6 +1,6 @@
 {
   "name": "Fastify Game Server",
-  "dockerComposeFile": "docker-compose.yml",
+  "dockerComposeFile": "../docker-compose-dev.yml",
   "service": "fastify-api-dev",
   "workspaceFolder": "/app",
   // 配置 VS Code

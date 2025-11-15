@@ -4,16 +4,19 @@ import { TableRepository } from '../repositories/table.repository.js'
 import crypto from 'crypto'
 import { GameType, RoundStatus } from '../constants/game.constants.js'
 import { GameRepository } from '../repositories/game.repository.js'
-import { BaccBetType } from '../constants/bacc.constants.js'
-import { ErrorCode } from '../utils/http-utils.js'
+import { BusinessError, ErrorCode } from '../utils/http.utils.js'
+import { GameBroadcastService } from './centrifugo.service.js'
+import { PushConst } from '../constants/push.onstants.js'
 
 export class TableService {
   private tableRepository: TableRepository
   private gameRepository: GameRepository
+  private broadcastService?: GameBroadcastService // 可选依赖
 
-  constructor (private fastify: FastifyInstance) {
+  constructor (private fastify: FastifyInstance, broadcastService?: GameBroadcastService) {
     this.tableRepository = new TableRepository(fastify)
     this.gameRepository = new GameRepository(fastify)
+    this.broadcastService = broadcastService
   }
 
   /**
@@ -94,7 +97,7 @@ export class TableService {
     await this.fastify.redis.set(redisKey, sessionId, 'EX', 24 * 60 * 60) // 24小时过期
 
     // 5. 更新桌台登录状态
-    await this.tableRepository.updateTable(table.table_no, token, loginIp)
+    await this.tableRepository.updateTable({ id: table.id }, { is_login: 1, login_ip: loginIp })
 
     // 构造返回数据
     let roundInfo: null | Round = null
@@ -125,18 +128,18 @@ export class TableService {
     const roundEndTime = roundInfo ? new Date(roundInfo.end_time).getTime() : 0
 
     // 更新或者存储table数据存redis,保证荷官登录时桌台数据是新的
-    this.gameRepository.updateTableCache(table.id, {
-      id: table.id + '',
+    this.tableRepository.updateTableCache(table.id, {
+      id: table.id,
       table_no: table.table_no,
       table_name: table.table_name,
       lobby_no: table.lobby_no,
-      type: table.type + '',
-      game_type: table.game_type + '',
-      shuffle: table.shuffle + '',
-      maintain: table.maintain + '',
+      type: table.type,
+      game_type: table.game_type,
+      shuffle: table.shuffle,
+      maintain: table.maintain,
       speed: table.speed,
-      countdown: table.countdown + '',
-      limit_max: table.limit_max + '',
+      countdown: table.countdown,
+      limit_max: table.limit_max,
       video1: table.video1,
       video2: table.video2,
       current_shoe: table.current_shoe ? table.current_shoe : '0',
@@ -157,23 +160,23 @@ export class TableService {
       if (l) {
         this.gameRepository.saveRoundListCache(table.id, roundList)
         // 更新好路数据
-        if (table.game_type === GameType.Baccarat) {
-          const resArr = []
-          for (let i = l - 1; i > 0; i--) {
-            if (roundList[i].status === RoundStatus.Cancel) continue
-            const hitRes = roundList[i].result.split(',').map(v => {
-              return Number(v)
-            })
-            if (!hitRes.includes(BaccBetType.tie)) {
-              const res = hitRes.includes(BaccBetType.banker) ? BaccBetType.banker : BaccBetType.player
-              const goodlen = resArr.unshift(res)
-              if (goodlen === 9) {
-                break
-              }
-            }
-          }
-          this.gameRepository.setGoodRoadCache(table.id, resArr)
-        }
+        // if (table.game_type === GameType.Baccarat) {
+        //   const resArr = []
+        //   for (let i = l - 1; i > 0; i--) {
+        //     if (roundList[i].status === RoundStatus.Cancel) continue
+        //     const hitRes = roundList[i].result.split(',').map(v => {
+        //       return Number(v)
+        //     })
+        //     if (!hitRes.includes(BaccBetType.tie)) {
+        //       const res = hitRes.includes(BaccBetType.banker) ? BaccBetType.banker : BaccBetType.player
+        //       const goodlen = resArr.unshift(res)
+        //       if (goodlen === 9) {
+        //         break
+        //       }
+        //     }
+        //   }
+        //   this.gameRepository.setGoodRoadCache(table.id, resArr)
+        // }
       }
     }
     if (table.game_type === GameType.Roulette) {
@@ -196,7 +199,7 @@ export class TableService {
       maintain: table.maintain,
       playStatus: roundInfo ? roundInfo.status : -1,
       video: table.site_url,
-      token: table.token,
+      token,
       roundStopTime: roundEndTime,
       roundCountdown: subTime > 0 ? Math.floor(subTime / 1000) : 0,
     }
@@ -209,70 +212,99 @@ export class TableService {
   async dealerLogin (tableId:number, dealerNo: string): Promise<DealerLoginResponse> {
     const dealer = await this.tableRepository.findDealerByNo(dealerNo, ['id', 'dealer_no', 'nickname', 'avatar', 'status', 'is_login'])
     if (!dealer || dealer.status === 0) {
-      throw new Error('dealer not found or disabled')
+      throw new BusinessError(ErrorCode.USER_NOT_EXIST)
     }
 
-    // const tableInfo = await this.tableRepository.findTable({ id: tableId })
-    // // 获取登陆dealer的编码，判断是否是同一个
-    // let dealerInfo = null
-    // if (tableInfo?.login_dealer) {
-    //   dealerInfo = JSON.parse(tableInfo.dealerInfo)
-    // }
+    const tableInfo = await this.tableRepository.findTableCache(tableId)
+    if (!tableInfo) {
+      throw new BusinessError(ErrorCode.TABLE_NOT_EXIST, 'table info not found')
+    }
 
-    // // 该桌同dealer的时候可以换衣服
-    // if (dealer.is_login === 1) {
-    //   return siteErrorReturn(SiteErrorCode.USER_IS_LOGGED)
-    // }
-    // dealer.is_login = 1
-    // saveDealer(dealer)
+    if (dealer.is_login === 1) {
+      throw new BusinessError(ErrorCode.USER_IS_LOGGED)
+    }
+    await this.tableRepository.updateDealer(dealer.id, { is_login: 1 })
 
-    // // 退出当前dealer
-    // if (tableInfo.login_dealer) {
-    //   updateDealer({ id: Number(tableInfo.login_dealer) }, { is_login: 0 })
-    // }
+    // 退出当前dealer
+    if (tableInfo.dealerInfo) {
+      const dealerInfo = JSON.parse(tableInfo.dealerInfo)
+      await this.tableRepository.updateDealer(dealerInfo.id, { is_login: 0 })
+    }
 
-    // // 更新桌dealer，方便直接从数据库取数据
-    // updateTableInfoRedis(tableId, {
-    //   login_dealer: dealer.id,
-    //   dealerInfo: JSON.stringify({ dealer_no: dealer.dealer_no, nickname: dealer.nickname, avatar: dealer.avatar }),
-    // })
-    // updateTableInfo({ id: tableId }, { is_login: 1, login_dealer: dealer.id })
-    // // 发送消息
-    // // this.channelService.abroadcast('connector', PushConst.CHANGE_DEALER, {
-    // //   tableId,
-    // //   dealerNo: dealer.dealer_no,
-    // //   dealerName: dealer.nickname,
-    // //   dealerAvatar: dealer.avatar,
-    // // })
-    // const resourceUrl = await getGameConfig(ConfigKey.ResourceUrl)
-    // return siteSuccessReturn({ nickname: dealer.nickname, avatar: resourceUrl + dealer.avatar })
+    // 更新桌dealer，方便直接从数据库取数据
+    await this.tableRepository.updateTableCache(tableId, {
+      dealerInfo: JSON.stringify({ id: dealer.id, nickname: dealer.nickname, avatar: dealer.avatar }),
+    })
+    this.tableRepository.updateTable({ id: tableId }, { is_login: 1, login_dealer: dealer.id })
+    // 发送消息
+    this.broadcastService?.globalBroadcast(PushConst.CHANGE_DEALER, {
+      tableId,
+      dealerNo: dealer.dealer_no,
+      dealerName: dealer.nickname,
+      dealerAvatar: dealer.avatar,
+    })
+    const resourceUrl = await this.gameRepository.getGameConfigCache('resourceUrl')
+    return { nickname: dealer.nickname, avatar: resourceUrl + dealer.avatar }
   }
 
   /**
-   * 桌台维护/结算
-   * TODO: 实现桌台维护逻辑
+   * 桌台维护
    */
-  async tableMaintain (tableNo: string, data: unknown): Promise<unknown> {
-    this.fastify.log.info({ tableNo, data }, 'Table maintain - Not implemented')
-    throw new Error('Table maintain not implemented yet')
+  async tableMaintain (tableId: number, status: number): Promise<void> {
+    const tableInfo = await this.tableRepository.findTableCache(tableId)
+    if (!tableInfo) {
+      throw new BusinessError(ErrorCode.TABLE_NOT_EXIST, 'table info not found')
+    }
+    // 直接修改数据库状态
+    if (Number(tableInfo.maintain) !== status && status === 1) {
+      this.tableRepository.updateTable({ id: tableId }, { maintain: 1, login_dealer: 0 })
+      this.tableRepository.updateTableCache(tableId, { maintain: '1', dealerInfo: '' })
+      if (tableInfo.dealerInfo) {
+        const dealerInfo = JSON.parse(tableInfo.dealerInfo)
+        this.tableRepository.updateDealer(dealerInfo.id, { is_login: 0 })
+      }
+    } else {
+      this.tableRepository.updateTable({ id: tableId }, { status: 1, maintain: 0 })
+      this.tableRepository.updateTableCache(tableId, { maintain: '0' })
+    }
+    this.broadcastService?.globalBroadcast(PushConst.ON_MAINTAIN, { tableId, maintain: Boolean(status) })
   }
 
   /**
    * 查询最后一局游戏
-   * TODO: 实现查询最后一局游戏逻辑
    */
-  async lastGame (tableNo: string): Promise<unknown> {
-    this.fastify.log.info({ tableNo }, 'Last game - Not implemented')
-    throw new Error('Last game not implemented yet')
+  async lastGame (tableId: number): Promise<void> {
+    this.fastify.log.info({ tableId }, 'Last game - Not implemented')
+    this.broadcastService?.globalBroadcast(PushConst.LAST_ROUND, { tableId })
   }
 
   /**
-   * 获取回合列表
-   * TODO: 实现获取回合列表逻辑
+   * tableId
+   * type 0:普通桌 1：现场桌(没有牌信息)
+   * 获取局列表
    */
-  async getRoundList (tableNo: string): Promise<unknown> {
-    this.fastify.log.info({ tableNo }, 'Get round list - Not implemented')
-    throw new Error('Get round list not implemented yet')
+  async getRoundList (tableId: number, gameType:GameType, shoeNo: number, type: number = 0): Promise<Round[]> {
+    this.fastify.log.info({ tableId }, 'Get round list - Not implemented')
+    const roundList = await this.gameRepository.getRoundList(tableId, gameType, shoeNo, [
+      'id',
+      'shoe_no',
+      'round_no',
+      'start_time',
+      'end_time',
+      'settle_time',
+      'result',
+      'details',
+      'status',
+    ])
+    if (type === 1) {
+      roundList.forEach(round => {
+        round.details = round.result.split(',').map(item => {
+          return Number(item)
+        })
+        delete (round as any).result
+      })
+    }
+    return roundList
   }
 
   /**
@@ -316,8 +348,8 @@ export class TableService {
     const redisKey = `session:table:${table.id}`
     await this.fastify.redis.set(redisKey, sessionId, 'EX', 24 * 60 * 60) // 24小时过期
 
-    // 6. 更新桌台的 token
-    await this.tableRepository.updateTable(table.table_no, token, loginIp)
+    // // 6. 更新桌台信息
+    // await this.tableRepository.updateTable(table.table_no, token, loginIp)
 
     this.fastify.log.info({ tableNo, loginIp }, 'Token refreshed successfully')
 

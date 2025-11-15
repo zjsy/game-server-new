@@ -7,6 +7,35 @@ export type ApiResponse<T = unknown> = {
   data?: T
 }
 
+export type StartResponse = {
+  id: number;
+  tableId: number
+  shoeNo: number
+  roundNo: number
+  roundSn: string
+  startTime: Date
+}
+
+export type DealingRequest = {
+  index: number;
+  details: number;
+}
+
+export type SettleRequest<T> = {
+  roundId: number;
+  details: T;
+  result: number[];
+  goodType?: number;
+}
+
+export type SettleResponse = {
+  settledAt: Date;
+}
+
+export type CancelRequest = {
+  roundId: number;
+}
+
 export type BaccDetails = {
   p: number[];
   b: number[];
@@ -53,7 +82,7 @@ export type TableCache = {
   table_no?: string;
   table_name?: string;
   lobby_no?: string;
-  type?: string;
+  type?: string | number;
   game_type?: string | number;
   shuffle?: string | number;
   maintain?: string | number;
@@ -62,7 +91,6 @@ export type TableCache = {
   limit_max?: string | number;
   video1?: string;
   video2?: string;
-  login_dealer?: string | number;
   dealerInfo?: string;
   // 随着开局变化的信息
   current_shoe?: string | number;
@@ -92,4 +120,9 @@ export type UserCache = {
   device?: string | number; // 设备
   currentTable?: string; // 大房间名字
   continuousWin?: string | number; // 连续输赢
+}
+
+export type ConfigCache = {
+  bakVideoUrl: string;
+  resourceUrl: string;
 }

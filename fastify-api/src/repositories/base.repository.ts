@@ -73,6 +73,64 @@ export class BaseRepository {
   }
 
   /**
+   * 插入记录
+   * @param table 表名
+   * @param data 要插入的数据
+   * @param conn 可选的数据库连接
+   * @returns 插入后的记录（包含自增ID）或null
+   */
+  async insert<T>(
+    table: string,
+    data: Partial<T>,
+    conn?: PoolConnection
+  ): Promise<number | null> {
+    if (!data || Object.keys(data).length === 0) {
+      throw new Error('Insert data cannot be empty')
+    }
+
+    // 构建字段和值
+    const fields = Object.keys(data)
+    const placeholders = fields.map(() => '?').join(', ')
+    const values = fields.map(field => data[field as keyof T])
+
+    const sql = `INSERT INTO ${table} (${fields.join(', ')}) VALUES (${placeholders})`
+
+    // 执行插入
+    const [result] = await this.execute(sql, values, conn)
+
+    // 如果有自增ID，查询并返回完整记录
+    if (result.insertId) {
+      return result.insertId
+    }
+
+    // 如果没有自增ID，返回null或者尝试根据插入的数据查询
+    return null
+  }
+
+  /**
+   * 删除记录
+   * @param table 表名
+   * @param where 删除条件(必须提供, 避免误删全部)
+   * @param conn 可选的数据库连接
+   * @returns 删除的行数(affectedRows)，若未删除返回0
+   */
+  async delete<T>(
+    table: string,
+    where?: Partial<T>,
+    conn?: PoolConnection
+  ): Promise<number | null> {
+    if (!where || Object.keys(where).length === 0) {
+      throw new Error('Delete where condition cannot be empty')
+    }
+
+    const { whereClause, whereValues } = this.buildWhereClause(where as Partial<Record<string, unknown>>)
+    const sql = `DELETE FROM ${table} WHERE ${whereClause}`
+
+    const [result] = await this.execute(sql, whereValues, conn)
+    return (result.affectedRows ?? 0)
+  }
+
+  /**
    * 单个记录获取
    * @param table 表名
    * @param where 查询条件
@@ -203,5 +261,39 @@ export class BaseRepository {
 
   protected get redis () {
     return this.fastify.redis
+  }
+
+  /**
+ * 批量删除匹配前缀的 key
+ * @param pattern 匹配模式,如 'front:stats:r_123:u_*'
+ */
+  async batchDeleteByPrefix (pattern: string): Promise<number> {
+    return new Promise((resolve, reject) => {
+      const stream = this.redis.scanStream({
+        match: pattern,
+        count: 100 // 每次扫描的数量
+      })
+
+      let deletedCount = 0
+      const pipeline = this.redis.pipeline()
+
+      stream.on('data', (keys: string[]) => {
+        if (keys.length) {
+          keys.forEach(key => pipeline.del(key))
+          deletedCount += keys.length
+        }
+      })
+
+      stream.on('end', async () => {
+        if (deletedCount > 0) {
+          await pipeline.exec()
+        }
+        resolve(deletedCount)
+      })
+
+      stream.on('error', (err) => {
+        reject(err)
+      })
+    })
   }
 }

@@ -1,6 +1,13 @@
 <template>
   <div id="app">
-    <Table v-for="info in tableInfo" :key="info.tableNo" :table-no="info.tableNo" :dealer-no="info.dealerNo" />
+    <div>
+      <button @click="startAll">Start All</button>
+      <button @click="stopAll">Stop All</button>
+    </div>
+    <div class="table-box">
+        <Table v-for="info in tableInfo" :key="info.tableNo" :table-no="info.tableNo" :dealer-no="info.dealerNo" :run-status="runStatus" />
+    </div>
+
   </div>
 </template>
 
@@ -19,12 +26,24 @@ function fetchTableInfo() {
   // Simulate fetching data from an API
   setTimeout(() => {
     tableInfo.value = [
-      { tableNo: 'T1', dealerNo: 'D1' },
-      { tableNo: 'T2', dealerNo: 'D2' },
-      { tableNo: 'T3', dealerNo: 'D3' }
+      { tableNo: 'B01', dealerNo: 'D1' },
+      { tableNo: 'B02', dealerNo: 'D2' },
+      { tableNo: 'B03', dealerNo: 'D3' }
     ]
   }, 1000)
-} 
+}
+
+const runStatus = ref(false)
+
+function startAll() { 
+  console.log('Starting all tables')
+  runStatus.value = true
+}
+
+function stopAll() { 
+  console.log('Stopping all tables')
+    runStatus.value = false
+}
 
 onMounted(() => {
   fetchTableInfo()
@@ -38,6 +57,12 @@ onMounted(() => {
   -moz-osx-font-smoothing: grayscale;
   text-align: center;
   color: #2c3e50;
-  margin-top: 60px;
 }
+.table-box {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 20px;
+}
+
 </style>

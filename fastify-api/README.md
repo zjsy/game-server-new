@@ -32,7 +32,7 @@ npm run dev
 
 ```bash
 # 编译
-npm run build:ts
+npm run build
 
 # 启动
 npm start

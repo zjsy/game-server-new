@@ -1,0 +1,211 @@
+/**
+ * 定时器管理器 - 用于管理桌台相关的定时器
+ * 提供统一的定时器创建、清理和监控功能
+ */
+
+export interface TimerInfo {
+  timerId: NodeJS.Timeout
+  type: 'timeout' | 'interval'
+  createdAt: number
+  tableId: number
+}
+
+export interface CountdownTimers {
+  timeout?: NodeJS.Timeout
+  interval?: NodeJS.Timeout
+}
+
+/**
+ * 桌台定时器管理器
+ */
+export class TableTimerManager {
+  // 存储所有桌台的定时器
+  private timers: Map<number, CountdownTimers> = new Map()
+
+  // 是否启用日志
+  private enableLog: boolean
+
+  constructor (enableLog = false) {
+    this.enableLog = enableLog
+  }
+
+  /**
+   * 设置桌台的倒计时定时器 (timeout)
+   */
+  setCountdownTimer (
+    tableId: number,
+    callback: () => void | Promise<void>,
+    delayMs: number,
+    description?: string
+  ): void {
+    // 先清理旧的定时器
+    this.clearCountdownTimer(tableId)
+
+    const wrappedCallback = async () => {
+      try {
+        await callback()
+        // 自动清理已完成的 timeout
+        const timers = this.timers.get(tableId)
+        if (timers) {
+          delete timers.timeout
+        }
+      } catch (error) {
+        console.error(`[TableTimer] Countdown callback error for table ${tableId}:`, error)
+      }
+    }
+
+    const timerId = setTimeout(wrappedCallback, delayMs)
+
+    const timers = this.timers.get(tableId) || {}
+    timers.timeout = timerId
+    this.timers.set(tableId, timers)
+
+    if (this.enableLog) {
+      console.warn(`[TableTimer] Set countdown timer for table ${tableId}, delay: ${delayMs}ms, desc: ${description || 'N/A'}`)
+    }
+  }
+
+  /**
+   * 设置桌台的定时广播定时器 (interval)
+   */
+  setBroadcastTimer (
+    tableId: number,
+    callback: () => void | Promise<void>,
+    intervalMs: number,
+    description?: string
+  ): void {
+    // 先清理旧的定时器
+    this.clearBroadcastTimer(tableId)
+
+    const wrappedCallback = async () => {
+      try {
+        await callback()
+      } catch (error) {
+        console.error(`[TableTimer] Broadcast callback error for table ${tableId}:`, error)
+      }
+    }
+
+    const timerId = setInterval(wrappedCallback, intervalMs)
+
+    const timers = this.timers.get(tableId) || {}
+    timers.interval = timerId
+    this.timers.set(tableId, timers)
+
+    if (this.enableLog) {
+      console.warn(`[TableTimer] Set broadcast timer for table ${tableId}, interval: ${intervalMs}ms, desc: ${description || 'N/A'}`)
+    }
+  }
+
+  /**
+   * 清理桌台的倒计时定时器
+   */
+  clearCountdownTimer (tableId: number): void {
+    const timers = this.timers.get(tableId)
+    if (timers?.timeout) {
+      clearTimeout(timers.timeout)
+      delete timers.timeout
+
+      if (this.enableLog) {
+        console.warn(`[TableTimer] Cleared countdown timer for table ${tableId}`)
+      }
+    }
+  }
+
+  /**
+   * 清理桌台的广播定时器
+   */
+  clearBroadcastTimer (tableId: number): void {
+    const timers = this.timers.get(tableId)
+    if (timers?.interval) {
+      clearInterval(timers.interval)
+      delete timers.interval
+
+      if (this.enableLog) {
+        console.warn(`[TableTimer] Cleared broadcast timer for table ${tableId}`)
+      }
+    }
+  }
+
+  /**
+   * 清理桌台的所有定时器
+   * @param isAutoEnd 是否是自动结束（超时），如果是则不需要清理 timeout
+   */
+  clearAllTimers (tableId: number, isAutoEnd = false): void {
+    if (!isAutoEnd) {
+      this.clearCountdownTimer(tableId)
+    } else {
+      // 自动结束时，timeout 已经执行完毕，只需删除引用
+      const timers = this.timers.get(tableId)
+      if (timers?.timeout) {
+        delete timers.timeout
+      }
+    }
+
+    this.clearBroadcastTimer(tableId)
+
+    // 如果该桌台没有任何定时器了，删除整个条目
+    const timers = this.timers.get(tableId)
+    if (timers && !timers.timeout && !timers.interval) {
+      this.timers.delete(tableId)
+    }
+
+    if (this.enableLog) {
+      console.warn(`[TableTimer] Cleared all timers for table ${tableId}, isAutoEnd: ${isAutoEnd}`)
+    }
+  }
+
+  /**
+   * 检查桌台是否有活跃的定时器
+   */
+  hasActiveTimers (tableId: number): boolean {
+    const timers = this.timers.get(tableId)
+    return !!(timers?.timeout || timers?.interval)
+  }
+
+  /**
+   * 获取所有活跃的桌台 ID
+   */
+  getActiveTableIds (): number[] {
+    return Array.from(this.timers.keys()).filter(tableId => this.hasActiveTimers(tableId))
+  }
+
+  /**
+   * 获取定时器统计信息（用于监控）
+   */
+  getStats () {
+    const stats = {
+      totalTables: this.timers.size,
+      tablesWithTimeout: 0,
+      tablesWithInterval: 0,
+      activeTables: [] as number[],
+    }
+
+    this.timers.forEach((timers, tableId) => {
+      if (timers.timeout) stats.tablesWithTimeout++
+      if (timers.interval) stats.tablesWithInterval++
+      if (timers.timeout || timers.interval) {
+        stats.activeTables.push(tableId)
+      }
+    })
+
+    return stats
+  }
+
+  /**
+   * 清理所有定时器（用于服务关闭时）
+   */
+  clearAll (): void {
+    this.timers.forEach((timers) => {
+      if (timers.timeout) clearTimeout(timers.timeout)
+      if (timers.interval) clearInterval(timers.interval)
+    })
+    this.timers.clear()
+
+    if (this.enableLog) {
+      console.warn('[TableTimer] Cleared all timers')
+    }
+  }
+}
+
+// 创建全局单例
+export const tableTimerManager = new TableTimerManager(process.env.NODE_ENV === 'development')

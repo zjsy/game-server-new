@@ -7,7 +7,14 @@
     "moduleResolution": "NodeNext",
     "target": "ES2022"
   },
+  "watchOptions": {
+    "watchFile": "priorityPollingInterval",
+    "watchDirectory": "dynamicPriorityPolling",
+    "fallbackPolling": "dynamicPriority",
+    "synchronousWatchDirectory": true,
+    "excludeDirectories": ["**/node_modules", "dist"]
+  },
   "include": [
     "src/**/*.ts"
-  ]
+, "src/utils/timer-manager.ts.bak", "src/plugins/encryption.ts.bak", "src/middlewares/encryption.ts.bak"  ]
 }

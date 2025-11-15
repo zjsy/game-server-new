@@ -26,7 +26,7 @@ const swaggerPlugin: FastifyPluginAsync = async (fastify) => {
         }
       ],
       tags: [
-        { name: 'users', description: '用户相关接口' },
+        { name: 'table', description: '桌登录登出相关接口' },
         { name: 'health', description: '健康检查' }
       ],
       components: {

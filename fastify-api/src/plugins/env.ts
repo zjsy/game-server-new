@@ -82,6 +82,22 @@ const envSchema = {
       type: 'string',
       default: 'my_api_key',
     },
+    BULLMQ_REDIS_HOST: {
+      type: 'string',
+      default: '127.0.0.1',
+    },
+    BULLMQ_REDIS_PASSWORD: {
+      type: 'string',
+      default: '',
+    },
+    BULLMQ_REDIS_PORT: {
+      type: 'integer',
+      default: 6379,
+    },
+    BULLMQ_REDIS_DB: {
+      type: 'integer',
+      default: 0,
+    },
 
     // JWT 鉴权配置
     JWT_SECRET: {
@@ -115,8 +131,13 @@ export interface EnvironmentVariables {
   CENTRIFUGO_API_URL: string;
   CENTRIFUGO_WS_URL: string;
   CENTRIFUGO_API_KEY: string;
+
   JWT_SECRET: string;
   JWT_EXPIRES_IN: string;
+  BULLMQ_REDIS_HOST: string;
+  BULLMQ_REDIS_PASSWORD: string;
+  BULLMQ_REDIS_PORT: number;
+  BULLMQ_REDIS_DB: number;
 }
 
 // 扩展 Fastify 类型，使环境变量可通过 fastify.config 访问

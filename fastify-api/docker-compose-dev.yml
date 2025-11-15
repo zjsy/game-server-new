@@ -6,17 +6,17 @@ services:
   fastify-api-dev:
     build:
       context: .
-      dockerfile: Dockerfile
+      dockerfile: Dockerfile.dev
     container_name: fastify-api-devcontainer
     volumes:
-      - ..:/app:cached  # 挂载源码目录，使用 cached 优化性能
+      - .:/app  # 挂载源码目录（移除 cached 选项以支持文件监听）
       - /app/node_modules  # 保护 node_modules 不被覆盖
-      - ../logs:/app/logs
+      - ./logs:/app/logs
       # Git 配置挂载
       - ~/.gitconfig:/home/fastify/.gitconfig:ro
       - ~/.ssh:/home/fastify/.ssh:ro
-    env_file:
-      - ../.env.docker
+    # env_file:
+    #   - .env
     environment:
       - HOST=0.0.0.0
       - PORT=3000
@@ -26,7 +26,7 @@ services:
     networks:
       - devcontainer_net
     depends_on:
-      - mysql-dev
+      # - mysql
       - redis-dev
     # 保持容器运行
     command: sleep infinity
@@ -36,27 +36,27 @@ services:
       - SYS_PTRACE
 
   # MySQL 开发数据库
-  mysql-dev:
-    image: mysql:8.0
-    container_name: fastify-mysql-devcontainer
-    restart: unless-stopped
-    environment:
-      - MYSQL_ROOT_PASSWORD=root123
-      - MYSQL_DATABASE=gameserver_dev
-      - MYSQL_USER=mysql
-      - MYSQL_PASSWORD=dev123
-    ports:
-      - "3306:3306"
-    volumes:
-      - mysql_dev_data:/var/lib/mysql
-    networks:
-      - devcontainer_net
-    command: --default-authentication-plugin=mysql_native_password
-    healthcheck:
-      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "mysql", "-pdev123"]
-      interval: 30s
-      timeout: 10s
-      retries: 5
+  # mysql:
+  #   image: mysql:8.0
+  #   container_name: fastify-mysql-devcontainer
+  #   restart: unless-stopped
+  #   environment:
+  #     - MYSQL_ROOT_PASSWORD='${DB_PASSWORD}'
+  #     - MYSQL_DATABASE='${DB_DATABASE}'
+  #     - MYSQL_USER='${DB_USERNAME}'
+  #     - MYSQL_PASSWORD='${DB_PASSWORD}'
+  #   ports:
+  #     - "3306:3306"
+  #   volumes:
+  #     - mysql_dev_data:/var/lib/mysql
+  #   networks:
+  #     - devcontainer_net
+  #   command: --default-authentication-plugin=mysql_native_password
+  #   healthcheck:
+  #     test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "mysql", "--password=${DB_PASSWORD}"]
+  #     interval: 30s
+  #     timeout: 10s
+  #     retries: 5
 
   # Redis 开发缓存
   redis-dev:
@@ -81,7 +81,7 @@ services:
   #   networks:
   #     - devcontainer_net
   #   environment:
-  #     - ADMINER_DEFAULT_SERVER=mysql-dev
+  #     - ADMINER_DEFAULT_SERVER=mysql
 
 volumes:
   mysql_dev_data:
@@ -90,3 +90,4 @@ volumes:
 networks:
   devcontainer_net:
     driver: bridge
+    external: true

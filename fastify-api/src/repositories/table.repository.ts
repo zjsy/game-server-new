@@ -1,6 +1,7 @@
 import { BaseRepository } from './base.repository.js'
 import { FastifyInstance } from 'fastify'
 import { Dealer, DealerRow, Table, TableRow } from '../types/table.types.js'
+import { TableCache } from '../types/common.types.js'
 
 export class TableRepository extends BaseRepository {
   constructor (protected fastify: FastifyInstance) {
@@ -24,17 +25,29 @@ export class TableRepository extends BaseRepository {
    * @param loginIp 登录 IP
    * @returns 影响的行数
    */
-  async updateTable (tableNo: string, token: string, loginIp: string): Promise<number> {
-    const { affectedRows } = await this.update<Table>('game_tables', { token, login_ip: loginIp, is_login: 1, }, { table_no: tableNo })
+  async updateTable (where: Partial<Table>, fields: Partial<Table>): Promise<number> {
+    const { affectedRows } = await this.update<Table>('game_tables', fields, where)
     return affectedRows
+  }
+
+  async findTableCache (tableId: string | number): Promise<TableCache | null> {
+    const res = await this.redis.hgetall(`sys:t:${tableId}`)
+    if (Object.keys(res).length === 0) {
+      return null
+    }
+    return res as TableCache
+  }
+
+  async updateTableCache (tableId: string | number, table: Partial<TableCache>): Promise<void> {
+    await this.redis.hmset(`sys:t:${tableId}`, table)
   }
 
   async findDealerByNo (dealerNo: string, fields: (keyof Dealer)[]): Promise< Dealer | null> {
     return this.find<DealerRow>('game_dealers', { dealer_no: dealerNo }, fields)
   }
 
-  async updateDealer (dealerNo: string, fields: Partial<Dealer>): Promise<number> {
-    const { affectedRows } = await this.update<Dealer>('game_dealers', fields, { dealer_no: dealerNo })
+  async updateDealer (dealerId: number, fields: Partial<Dealer>): Promise<number> {
+    const { affectedRows } = await this.update<Dealer>('game_dealers', fields, { id: dealerId })
     return affectedRows
   }
 }
