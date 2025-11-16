@@ -12,7 +12,7 @@
 import {  watch } from 'vue'
 import { BaccTaskPipeline, TaskPipeline } from '../game-schedule/bacc-schedule'
 import { GameType } from '../const/GameConst';
-import { loginTableApi } from '../const/centrifugo/api';
+import { BaccApiService } from '../const/centrifugo/bacc.api.service';
 
 const { tableNo, dealerNo ,runStatus} = defineProps<{
   tableNo: string
@@ -70,8 +70,9 @@ function stop() {
     //   currentShoe: data.current_shoe,
     //   currentRoundId: data.current_round_id,
     // }
-    if(gameType === GameType.BACCARAT){
-      pipeline = new BaccTaskPipeline();
+   if (gameType === GameType.BACCARAT) {
+      const apiService = new BaccApiService();
+      pipeline = new BaccTaskPipeline(apiService);
       pipeline.start(data);
     }
 

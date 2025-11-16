@@ -60,6 +60,7 @@ export interface TableLoginResponse {
   playStatus: number
   video: string
   token: string
+  refreshToken: string // 新增 refresh token
   roundStopTime: number
   roundCountdown: number
 }
@@ -115,6 +116,7 @@ export interface GetRoundListResponse {
 
 export interface RefreshTokenResponse {
   token: string
+  refreshToken: string
   expiresIn: string
 }
 

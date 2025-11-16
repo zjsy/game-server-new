@@ -26,6 +26,13 @@ export type StartResponse = {
   startTime: Date;
 };
 
+export type SettleRequest<T> = {
+  roundId: number;
+  details: T;
+  result?: number[];
+  goodType?: number;
+};
+
 export type LoginTableResponse = {
   id?: number;
   table_no: string;

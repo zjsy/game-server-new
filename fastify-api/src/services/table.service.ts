@@ -1,5 +1,5 @@
 import { FastifyInstance } from 'fastify'
-import { DealerLoginResponse, Round, TableLoginResponse } from '../types/table.types.js'
+import { DealerLoginResponse, RefreshTokenResponse, Round, TableLoginResponse } from '../types/table.types.js'
 import { TableRepository } from '../repositories/table.repository.js'
 import crypto from 'crypto'
 import { GameType, RoundStatus } from '../constants/game.constants.js'
@@ -78,7 +78,7 @@ export class TableService {
     // 3. 生成新的 sessionId
     const sessionId = crypto.randomUUID()
 
-    // 4. 生成 JWT token
+    // 4. 生成 JWT access token (短期有效)
     const token = this.fastify.jwt.sign(
       {
         tableNo: table.table_no,
@@ -86,15 +86,35 @@ export class TableService {
         lobbyNo: table.lobby_no,
         gameType: table.game_type,
         sessionId, // 添加 sessionId 到 JWT payload
+        type: 'access', // 标记为 access token
       },
       {
-        expiresIn: '24h', // token 有效期 24 小时
+        expiresIn: '1h', // access token 有效期 1 小时
       }
     )
 
-    // 5. 将新的 sessionId 存储到 Redis
-    const redisKey = `session:table:${table.id}`
-    await this.fastify.redis.set(redisKey, sessionId, 'EX', 24 * 60 * 60) // 24小时过期
+    // 5. 生成 refresh token (长期有效，用于刷新 access token)
+    const refreshToken = this.fastify.jwt.sign(
+      {
+        tableNo: table.table_no,
+        tableId: table.id,
+        sessionId,
+        type: 'refresh', // 标记为 refresh token
+      },
+      {
+        expiresIn: '7d', // refresh token 有效期 7 天
+      }
+    )
+
+    // 6. 将 sessionId 和 refreshToken 存储到 Redis
+    const redisSessionKey = `session:table:${table.id}`
+    const redisRefreshKey = `refresh:table:${table.id}:${sessionId}`
+
+    // 使用 pipeline 批量操作 Redis
+    const pipeline = this.fastify.redis.pipeline()
+    pipeline.set(redisSessionKey, sessionId, 'EX', 7 * 24 * 60 * 60) // 7天过期
+    pipeline.set(redisRefreshKey, refreshToken, 'EX', 7 * 24 * 60 * 60) // 7天过期
+    await pipeline.exec()
 
     // 5. 更新桌台登录状态
     await this.tableRepository.updateTable({ id: table.id }, { is_login: 1, login_ip: loginIp })
@@ -200,6 +220,7 @@ export class TableService {
       playStatus: roundInfo ? roundInfo.status : -1,
       video: table.site_url,
       token,
+      refreshToken, // 返回 refresh token
       roundStopTime: roundEndTime,
       roundCountdown: subTime > 0 ? Math.floor(subTime / 1000) : 0,
     }
@@ -301,6 +322,7 @@ export class TableService {
         round.details = round.result.split(',').map(item => {
           return Number(item)
         })
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         delete (round as any).result
       })
     }
@@ -308,55 +330,95 @@ export class TableService {
   }
 
   /**
-   * 刷新 token
-   * @param tableNo 桌台编号
-   * @param loginIp 登录 IP
-   * @returns 新的 token
+   * 使用 refresh token 刷新 access token
+   * @param oldRefreshToken 旧的 refresh token
+   * @returns 新的 access token 和 refresh token
    */
-  async refreshToken (tableNo: string, loginIp: string): Promise<{ token: string; expiresIn: string }> {
-    // 1. 查询桌台信息
-    const table = await this.tableRepository.findTable({ table_no: tableNo })
-    if (!table) {
-      throw new Error('table not found')
-    }
+  async refreshToken (oldRefreshToken: string): Promise<RefreshTokenResponse> {
+    try {
+      // 1. 验证 refresh token
+      interface JwtPayload {
+        type: string
+        tableNo: string
+        tableId: number
+        sessionId: string
+      }
+      const decoded = this.fastify.jwt.verify(oldRefreshToken) as JwtPayload
 
-    // 2. 检查桌台状态
-    if (table.status === 0) {
-      throw new Error('table is disabled')
-    }
+      // 2. 检查是否是 refresh token
+      if (decoded.type !== 'refresh') {
+        throw new BusinessError(ErrorCode.INVALID_TOKEN, 'Invalid token type')
+      }
 
-    // 3. 生成新的 sessionId
-    const sessionId = crypto.randomUUID()
+      const { tableNo, tableId, sessionId } = decoded
 
-    // 4. 生成新的 JWT token
-    const expiresIn = '24h'
-    const token = this.fastify.jwt.sign(
-      {
-        tableNo: table.table_no,
-        userId: table.id.toString(),
-        tableId: table.id,
-        lobbyNo: table.lobby_no,
-        gameType: table.game_type,
-        sessionId, // 添加 sessionId 到 JWT payload
-      },
-      {
+      // 3. 检查 refresh token 是否在 Redis 中存在且有效
+      const redisRefreshKey = `refresh:table:${tableId}:${sessionId}`
+      const storedRefreshToken = await this.fastify.redis.get(redisRefreshKey)
+
+      if (!storedRefreshToken || storedRefreshToken !== oldRefreshToken) {
+        throw new BusinessError(ErrorCode.TOKEN_EXPIRED, 'Refresh token is invalid or expired')
+      }
+
+      // 4. 查询桌台信息
+      const table = await this.tableRepository.findTable({ id: tableId })
+      if (!table) {
+        throw new BusinessError(ErrorCode.TABLE_NOT_EXIST, 'table not found')
+      }
+
+      // 5. 检查桌台状态
+      if (table.status === 0) {
+        throw new BusinessError(ErrorCode.TABLE_NOT_EXIST, 'table is disabled')
+      }
+
+      // 6. 生成新的 access token
+      const expiresIn = '1h'
+      const newAccessToken = this.fastify.jwt.sign(
+        {
+          tableNo: table.table_no,
+          tableId: table.id,
+          lobbyNo: table.lobby_no,
+          gameType: table.game_type,
+          sessionId,
+          type: 'access',
+        },
+        {
+          expiresIn,
+        }
+      )
+
+      // 7. 生成新的 refresh token (可选：refresh token 轮换策略)
+      const newRefreshToken = this.fastify.jwt.sign(
+        {
+          tableNo: table.table_no,
+          tableId: table.id,
+          sessionId,
+          type: 'refresh',
+        },
+        {
+          expiresIn: '7d',
+        }
+      )
+
+      // 8. 删除旧的 refresh token，存储新的 refresh token (refresh token 轮换)
+      const pipeline = this.fastify.redis.pipeline()
+      pipeline.del(redisRefreshKey) // 删除旧的
+      pipeline.set(redisRefreshKey, newRefreshToken, 'EX', 7 * 24 * 60 * 60) // 存储新的
+      await pipeline.exec()
+
+      this.fastify.log.info({ tableNo, tableId }, 'Token refreshed successfully')
+
+      // 9. 返回新的 token
+      return {
+        token: newAccessToken,
+        refreshToken: newRefreshToken,
         expiresIn,
       }
-    )
-
-    // 5. 将新的 sessionId 存储到 Redis
-    const redisKey = `session:table:${table.id}`
-    await this.fastify.redis.set(redisKey, sessionId, 'EX', 24 * 60 * 60) // 24小时过期
-
-    // // 6. 更新桌台信息
-    // await this.tableRepository.updateTable(table.table_no, token, loginIp)
-
-    this.fastify.log.info({ tableNo, loginIp }, 'Token refreshed successfully')
-
-    // 7. 返回新 token
-    return {
-      token,
-      expiresIn,
+    } catch (error) {
+      if (error instanceof BusinessError) {
+        throw error
+      }
+      throw new BusinessError(ErrorCode.TOKEN_EXPIRED, 'Invalid or expired refresh token')
     }
   }
 }

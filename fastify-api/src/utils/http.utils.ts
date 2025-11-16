@@ -23,6 +23,8 @@ export enum ErrorCode {
   SETTLE_ROUND_LOCK = 515,
   RESETTLE_ROUND_LOCK = 516,
   CANCEL_ROUND_LOCK = 517,
+  INVALID_TOKEN = 518, // token 类型错误
+  TOKEN_EXPIRED = 519, // token 已过期
 }
 
 const ErrorMsg = {
@@ -43,6 +45,8 @@ const ErrorMsg = {
   [ErrorCode.SETTLE_ROUND_LOCK]: 'settle round locked,too busy',
   [ErrorCode.RESETTLE_ROUND_LOCK]: 'resettle round locked,too busy',
   [ErrorCode.CANCEL_ROUND_LOCK]: 'cancel round locked,too busy',
+  [ErrorCode.INVALID_TOKEN]: 'invalid token type',
+  [ErrorCode.TOKEN_EXPIRED]: 'token has expired',
 }
 
 /**

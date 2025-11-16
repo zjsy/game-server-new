@@ -146,7 +146,7 @@ const tableRoute: FastifyPluginAsync = async (fastify) => {
 
     fastify.log.info({ tableNo, loginIp }, 'Refresh token request')
 
-    const result = await tableService.refreshToken(tableNo, loginIp)
+    const result = await tableService.refreshToken(tableNo)
     return reply.send(success(result, 'Token 刷新成功'))
   })
 }
