@@ -15,6 +15,11 @@ const baccRoute: FastifyPluginAsync = async (fastify) => {
     const authRequest = request as AuthenticatedRequest
     const tableId = authRequest.tableId // 从JWT payload获取
     fastify.log.info({ tableId }, 'Start game request')
+    fastify.log.warn({ tableId }, 'This is a WARN level log')
+    fastify.log.error({ tableId }, 'This is an ERROR level log')
+    console.log('=== CONSOLE.LOG TEST ===', tableId)
+    console.warn('=== CONSOLE.WARN TEST ===', tableId)
+    console.error('=== CONSOLE.ERROR TEST ===', tableId)
     const lockAcquired = await fastify.lockManager.setApiLock(ApiType.START_GAME, tableId) // 尝试获取锁，TTL为5000毫秒
     if (!lockAcquired) {
       return { code: false, msg: '资源被锁定，请稍后再试' }

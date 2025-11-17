@@ -166,6 +166,7 @@ export class BaccTaskPipeline implements TaskPipeline {
     console.log("Shoes Changed", this.tableInfo);
     const res = await this.baccService.baccNewShoes();
     const data = res.data.data;
+    console.log("New Shoes Response:", data);
     this.tableInfo.currentShoe = data.shoeNo;
   };
 }

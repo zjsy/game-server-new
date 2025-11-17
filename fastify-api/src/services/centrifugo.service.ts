@@ -11,12 +11,13 @@ export interface GameMessage {
 
 export class GameBroadcastService {
   private readonly client: CentrifugoClient
-
-  constructor (fastify:FastifyInstance) {
+  private readonly fastify: FastifyInstance
+  constructor (fastify: FastifyInstance) {
     this.client = new CentrifugoClient(
       fastify.config.CENTRIFUGO_API_URL!,
       fastify.config.CENTRIFUGO_API_KEY!
     )
+    this.fastify = fastify
   }
 
   /**
@@ -31,7 +32,9 @@ export class GameBroadcastService {
       timestamp: Date.now()
     }
 
-    await this.client.publish('global', message)
+    const res = await this.client.publish('public:global', message)
+    this.fastify.log.warn(res)
+    console.warn('Global broadcast response:', res)
   }
 
   /**

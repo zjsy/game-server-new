@@ -22,15 +22,11 @@
     }
   },
   "channel": {
-    "without_namespace": {
-      "allow_subscribe_for_client": true
-    }
-  },
-  "namespaces": [
-    {
-      "name": "public",
-      "allow_subscribe_for_client": true
-    }
-  ]
-
+    "namespaces": [
+      {
+        "name": "public",
+        "allow_subscribe_for_client": true
+      }
+    ]
+  }
 }

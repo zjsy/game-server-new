@@ -63,7 +63,7 @@ export class CentrifugoClient {
     this.apiUrl = apiUrl
     this.headers = {
       'Content-Type': 'application/json',
-      Authorization: `apikey ${apiKey}`
+      'X-API-Key': apiKey
     }
   }
 
