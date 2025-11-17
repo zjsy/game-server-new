@@ -2,7 +2,7 @@ version: '3.8'
 
 services:
   # Redis - 用于 Centrifugo 集群消息代理
-  redis:
+  centrifugo-redis:
     image: redis:7-alpine
     container_name: centrifugo-redis
     restart: always
@@ -25,7 +25,7 @@ services:
     volumes:
       - ./config.json:/centrifugo/config.json:ro
     depends_on:
-      - redis
+      - centrifugo-redis
     networks:
       - centrifugo_net
     ulimits:
@@ -44,7 +44,7 @@ services:
     volumes:
       - ./config.json:/centrifugo/config.json:ro
     depends_on:
-      - redis
+      - centrifugo-redis
     networks:
       - centrifugo_net
     ulimits:
@@ -63,7 +63,7 @@ services:
     volumes:
       - ./config.json:/centrifugo/config.json:ro
     depends_on:
-      - redis
+      - centrifugo-redis
     networks:
       - centrifugo_net
     ulimits:
@@ -72,7 +72,7 @@ services:
         hard: 65535
 
   # Nginx 负载均衡器
-  nginx:
+  centrifugo-nginx:
     image: nginx:alpine
     container_name: centrifugo-nginx
     restart: always
@@ -92,4 +92,5 @@ volumes:
 
 networks:
   centrifugo_net:
+    name: centrifugo-net
     driver: bridge

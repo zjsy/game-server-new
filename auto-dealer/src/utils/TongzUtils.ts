@@ -194,6 +194,7 @@ function calTongz(pokers: number[]) {
     return {
       isPair: true,
       point: pokers[0],
+      maxPoker: pokers[0],
     };
   } else {
     const point1 = pokers[0] === 10 ? 0.5 : pokers[0];

@@ -111,7 +111,9 @@ const baccRoute: FastifyPluginAsync = async (fastify) => {
     // 查询桌台信息
     const result = await baccService.shuffle(tableId)
 
-    return reply.send(success(result, '洗牌成功'))
+    return reply.send(success({
+      shoeNo: result,
+    }, '洗牌成功'))
   })
 
   // GET /api/bacc/stop-shuffle - 停止洗牌

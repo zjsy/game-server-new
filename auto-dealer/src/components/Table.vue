@@ -13,6 +13,7 @@ import {  watch } from 'vue'
 import { BaccTaskPipeline, TaskPipeline } from '../game-schedule/bacc-schedule'
 import { GameType } from '../const/GameConst';
 import { BaccApiService } from '../const/centrifugo/bacc.api.service';
+import { loginTableApi } from '../const/centrifugo/api.service';
 
 const { tableNo, dealerNo ,runStatus} = defineProps<{
   tableNo: string
@@ -45,33 +46,16 @@ function stop() {
 }
 
  async function loginTable() {
-  //  const res = await loginTableApi({ t: tableNo, p: '123456', })
-    // console.log('Login Table Response:', res);
-   // const data = res.data;
-   const data = {
-      table_no: 'L01',
-      countdown: 15,
-      current_round_no: 10,
-      type: 1,
-      game_type: GameType.BACCARAT,
-      playStatus: 0,
-      current_shoe: 1,
-      current_round_id: 10,
-      token: 'example-token'
-   };
+   const res = await loginTableApi({ t: tableNo, p: '123456', })
+   console.log('Login Table Response:', res);
+   const data = res.data;
+
     const gameType = data.game_type;
-    // const tableInfo = {
-    //   lobby: data.lobby_no,
-    //   countdown: data.countdown,
-    //   roundNo: data.current_round_no,
-    //   type: data.type,
-    //   gameType: data.game_type,
-    //   playStatus: data.play_status,
-    //   currentShoe: data.current_shoe,
-    //   currentRoundId: data.current_round_id,
-    // }
    if (gameType === GameType.BACCARAT) {
-      const apiService = new BaccApiService();
+      const apiService = new BaccApiService({
+        token: data.token,
+        refreshToken: data.refreshToken,
+      });
       pipeline = new BaccTaskPipeline(apiService);
       pipeline.start(data);
     }

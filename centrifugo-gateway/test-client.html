@@ -3,7 +3,7 @@
   <head>
     <title>Centrifugo 集群测试客户端</title>
     <script src="https://unpkg.com/centrifuge@5.4.0/dist/centrifuge.js"></script>
-    <!-- <script src="https://unpkg.com/jsonwebtoken@9.0.2"></script> -->
+    <script src="https://unpkg.com/jsrsasign@10/lib/jsrsasign.js"></script>
     <style>
       body {
         font-family: Arial, sans-serif;
@@ -126,16 +126,23 @@
           statusDiv.className = "status disconnected";
         }
       }
-      // var jwt = require("jsonwebtoken");
-      // function generateToken() {
-      //   const secret = "supersecretkey"; // 来自 config.json
-      //   const payload = {
-      //     sub: "user123", // 用户ID
-      //     exp: Math.floor(Date.now() / 1000) + 60 * 60, // 1小时后过期
-      //   };
+      var jwt = require("jsonwebtoken");
+      function generateToken() {
+        const header = { alg: "HS256", typ: "JWT" };
+        const payload = {
+          sub: "user123",
+          exp: Math.floor(Date.now() / 1000) + 60 * 60,
+          iat: Math.floor(Date.now() / 1000),
+        };
+        const secret = "my_secret";
 
-      //   const token = jwt.sign(payload, secret);
-      // }
+        return KJUR.jws.JWS.sign(
+          "HS256",
+          JSON.stringify(header),
+          JSON.stringify(payload),
+          secret
+        );
+      }
       function connect() {
         const serverUrl = document.getElementById("serverUrl").value;
 
@@ -146,8 +153,7 @@
         centrifuge = new Centrifuge(serverUrl, {
           // 集群模式下的配置
           debug: true,
-          token:
-            "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM3MjIiLCJleHAiOjE3NTkxNzE5MTUsImlhdCI6MTc1ODU2NzExNX0.yqgMnJRGUeOFa_meet8kEdo7VimBxWm5855bvFdZjtw",
+          token: generateToken(),
         });
 
         centrifuge.on("connecting", function (ctx) {

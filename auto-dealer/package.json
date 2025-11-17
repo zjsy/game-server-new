@@ -4,15 +4,19 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
-    "dev": "vite",
-    "build": "vue-tsc && vite build",
+    "dev": "vite --mode development",
+    "build": "vue-tsc && vite build --mode production",
+    "build:dev": "vue-tsc && vite build --mode development",
     "preview": "vite preview"
   },
   "dependencies": {
     "axios": "^1.12.2",
+    "pinus-protobuf": "^1.7.3",
     "vue": "^3.4.29"
   },
   "devDependencies": {
+    "@tauri-apps/cli": "^2.9.4",
+    "@types/node": "^24.10.1",
     "@vitejs/plugin-vue": "^5.0.5",
     "typescript": "^5.2.2",
     "vite": "^5.3.1",

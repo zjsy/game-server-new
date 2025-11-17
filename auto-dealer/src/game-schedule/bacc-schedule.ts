@@ -1,9 +1,5 @@
 import { BaccApiService } from "../const/centrifugo/bacc.api.service";
-import {
-  LoginTableResponse,
-  RoundStatus,
-  StartResponse,
-} from "../const/GameConst";
+import { LoginTableResponse, RoundStatus } from "../const/GameConst";
 import {
   BaccCardPositionEnum,
   generateBaccRoundResult,
@@ -11,7 +7,7 @@ import {
 
 type Task = {
   name: string;
-  fn: (tableInfo: TableInfo, input: any) => Promise<any>;
+  fn: (input: any) => Promise<any>;
   delay: number;
 };
 
@@ -51,19 +47,18 @@ export class BaccTaskPipeline implements TaskPipeline {
   }
 
   async runPipeline() {
-    this.running = true;
     let input: any = null;
     while (this.running) {
       for (const task of this.tasks) {
         await new Promise((resolve) => setTimeout(resolve, task.delay));
-        if (this.tableInfo) {
-          input = await task.fn(this.tableInfo, input);
-        }
+        if (!this.running) break; // 延迟后再次检查
+        input = await task.fn(input);
       }
     }
   }
 
   async start(data: LoginTableResponse) {
+    console.log("Bacc Task Pipeline Started", data);
     this.tasks = [
       { name: "startGame", fn: this.startGame, delay: 3000 },
       // { name: "dealingCards", fn: this.dealingCards, delay: data.countdown * 1000 + 3000},
@@ -84,45 +79,53 @@ export class BaccTaskPipeline implements TaskPipeline {
       currentRoundId: data.current_round_id,
       token: data.token,
     };
+    this.running = true;
     const startIndex = this.selectEntryIndex(data);
     let input = data;
     for (let i = startIndex; i < this.tasks.length; i++) {
       const task = this.tasks[i];
       await new Promise((resolve) => setTimeout(resolve, task.delay));
-      input = await task.fn(this.tableInfo, input);
+      if (!this.running) break; // 延迟后再次检查
+      input = await task.fn(input);
     }
-    this.runPipeline();
+    if (this.running) this.runPipeline();
   }
 
   selectEntryIndex(data: LoginTableResponse): number {
     if (data.playStatus === RoundStatus.Betting) {
       return 1; // 从发牌开始
     } else if (data.playStatus === RoundStatus.Dealing) {
-      return 2; // 从结算开始
-    } else {
-      return 0; // 默认从开始
+      return 1; // 从结算开始
+    } else if (data.playStatus === -1) {
+      this.changeShoes();
+      return 0;
     }
+    return 0;
   }
 
   stop() {
+    console.warn("Bacc Task Pipeline Stopped");
     this.running = false;
   }
 
-  async startGame(tableInfo: TableInfo, input: any): Promise<any> {
-    console.log("Game Start", new Date(), tableInfo);
+  startGame = async (_input: any): Promise<any> => {
+    console.log("Game Start", new Date(), this.tableInfo);
     const res = await this.baccService.baccStartGame();
-    const data = res.data as StartResponse;
+    if (res.data.code !== 0) {
+      throw new Error(`Start Game Failed: ${res.data.msg || "Unknown error"}`);
+    }
+    const data = res.data.data;
     console.log("Start Game Response:", data);
-    tableInfo.currentRoundId = data.id;
-    tableInfo.roundNo = data.roundNo;
-    tableInfo.currentShoe = data.shoeNo;
+    this.tableInfo.currentRoundId = data.id;
+    this.tableInfo.roundNo = data.roundNo;
+    this.tableInfo.currentShoe = data.shoeNo;
     return data;
-  }
+  };
 
-  settlement = async (tableInfo: TableInfo) => {
-    console.log("Cards Dealing", new Date(), tableInfo);
-    const { details, points } = generateBaccRoundResult();
-    if (tableInfo.type === 0) {
+  settlement = async (_input: any) => {
+    console.log("Cards Dealing", new Date(), this.tableInfo);
+    const { details } = generateBaccRoundResult();
+    if (this.tableInfo.type === 0) {
       const pCards = details.p;
       const bCards = details.b;
       const pokerList = [
@@ -147,15 +150,22 @@ export class BaccTaskPipeline implements TaskPipeline {
         }, i * 500);
       }
     }
-    console.log("Settlement", new Date(), tableInfo);
+    await new Promise((resolve) => setTimeout(resolve, 4000));
+    console.log("Settlement", new Date(), this.tableInfo);
     const res = await this.baccService.baccSettlement({
-      roundId: tableInfo.currentRoundId,
+      roundId: this.tableInfo.currentRoundId,
       details: details,
     });
+    if (res.data.code !== 0) {
+      throw new Error(`Settlement Failed: ${res.data.msg || "Unknown error"}`);
+    }
     return res.data;
   };
 
-  changeShoes = (tableInfo: TableInfo) => {
-    console.log("Shoes Changed", tableInfo);
+  changeShoes = async () => {
+    console.log("Shoes Changed", this.tableInfo);
+    const res = await this.baccService.baccNewShoes();
+    const data = res.data.data;
+    this.tableInfo.currentShoe = data.shoeNo;
   };
 }

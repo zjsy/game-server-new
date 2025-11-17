@@ -17,7 +17,7 @@
     "type": "redis",
     "redis": {
       "address": [
-        "redis:6379"
+        "centrifugo-redis:6379"
       ]
     }
   },
@@ -25,5 +25,12 @@
     "without_namespace": {
       "allow_subscribe_for_client": true
     }
-  }
+  },
+  "namespaces": [
+    {
+      "name": "public",
+      "allow_subscribe_for_client": true
+    }
+  ]
+
 }

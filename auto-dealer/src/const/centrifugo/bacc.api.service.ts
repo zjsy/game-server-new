@@ -1,9 +1,16 @@
-import { SettleRequest } from "../GameConst";
+import {
+  BaseResponse,
+  SettleRequest,
+  ShuffleResponse,
+  StartResponse,
+} from "../GameConst";
 import { BaseApiClient } from "./api.service";
 
 export class BaccApiService extends BaseApiClient {
   baccStartGame() {
-    return this.axiosClient.post("/api/bacc/start-game");
+    return this.axiosClient.post<BaseResponse<StartResponse>>(
+      "/api/bacc/start-game"
+    );
   }
 
   baccDealingCards(data: { index: number; details: number }) {
@@ -12,5 +19,11 @@ export class BaccApiService extends BaseApiClient {
 
   baccSettlement(data: SettleRequest<{ b: number[]; p: number[] }>) {
     return this.axiosClient.post("/api/bacc/settle", data);
+  }
+
+  baccNewShoes() {
+    return this.axiosClient.post<BaseResponse<ShuffleResponse>>(
+      "/api/bacc/shuffle"
+    );
   }
 }

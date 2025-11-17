@@ -1,12 +1,23 @@
+import axios from "axios";
 import { AxiosClient } from "../../utils/axios-utils";
+import { BaseResponse, LoginTableResponse } from "../GameConst";
+
+const baseUrl = import.meta.env.VITE_BASE_URL || "";
+export async function loginTableApi(data: { t: string; p: string }) {
+  const response = await axios.post<BaseResponse<LoginTableResponse>>(
+    baseUrl + "/api/table/table-login",
+    data
+  );
+  return response.data;
+}
 
 export class BaseApiClient {
-  public axiosClient;
-  constructor() {
+  public axiosClient: AxiosClient;
+  constructor(data: { token: string; refreshToken: string }) {
     const config = {
-      baseURL: import.meta.env.VITE_BASE_URL || "http://localhost:3000/",
+      baseURL: baseUrl,
       timeout: 10000,
-      tokenStorage: {},
+      tokenStorage: data,
       refreshTokenUrl: "/api/table/refresh-token",
     };
     this.axiosClient = new AxiosClient(config);

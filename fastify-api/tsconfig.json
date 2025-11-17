@@ -16,5 +16,5 @@
   },
   "include": [
     "src/**/*.ts"
-, "src/utils/timer-manager.ts.bak", "src/plugins/encryption.ts.bak", "src/middlewares/encryption.ts.bak"  ]
+  ]
 }

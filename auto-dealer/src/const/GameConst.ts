@@ -33,6 +33,16 @@ export type SettleRequest<T> = {
   goodType?: number;
 };
 
+export type BaseResponse<T> = {
+  code: number;
+  msg?: string;
+  data: T;
+};
+
+export type ShuffleResponse = {
+  shoeNo: number;
+};
+
 export type LoginTableResponse = {
   id?: number;
   table_no: string;
@@ -48,6 +58,7 @@ export type LoginTableResponse = {
   playStatus: number;
   video?: string;
   token: string;
+  refreshToken: string;
   roundStopTime?: number;
   roundCountdown?: number;
 };

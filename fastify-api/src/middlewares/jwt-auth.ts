@@ -36,7 +36,7 @@ export async function jwtAuthMiddleware (request: FastifyRequest, reply: Fastify
     }
 
     // 从 Redis 中获取存储的 sessionId
-    const redisKey = `session:table:${payload.tableId}`
+    const redisKey = `sys:session:table:${payload.tableId}`
     const storedSessionId = await request.server.redis.get(redisKey)
 
     // 验证 sessionId 是否匹配

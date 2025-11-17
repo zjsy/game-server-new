@@ -32,11 +32,11 @@ export class GameRepository extends BaseRepository {
   }
 
   async getTempOrderListByRoundId (roundId: number, fields?: (keyof BetTempOrder)[]): Promise<BetTempOrderRow[]> {
-    return await this.get<BetTempOrderRow>('game_temp_bet_orders', { round_id: roundId }, fields)
+    return await this.get<BetTempOrderRow>('game_bet_temp_orders', { round_id: roundId }, fields)
   }
 
   async detelteTempOrderListByRoundId (roundId: number) {
-    return await this.delete('game_temp_bet_orders', { round_id: roundId })
+    return await this.delete('game_bet_temp_orders', { round_id: roundId })
   }
 
   async getOrderListByRoundId (roundId: number, fields?: (keyof BetOrder)[]): Promise<BetOrderRow[]> {
@@ -115,9 +115,9 @@ export class GameRepository extends BaseRepository {
     if (gameType === GameType.Baccarat || gameType === GameType.DragonTiger) {
       // 百家乐和龙虎需要根据靴号查询
       const rows = await this.query<RoundRow[]>(
-        `SELECT ${selectFields} 
-         FROM game_round_infos 
-         WHERE table_id = ? AND shoe_no = ? AND status > 1 
+        `SELECT ${selectFields}
+         FROM game_round_infos
+         WHERE table_id = ? AND shoe_no = ? AND status > 1
          ORDER BY id ASC`,
         [tableId, currentShoeNo]
       )
@@ -125,10 +125,10 @@ export class GameRepository extends BaseRepository {
     } else {
       // 其他游戏类型限制查询最近100局
       const rows = await this.query<RoundRow[]>(
-        `SELECT ${selectFields} 
-         FROM game_round_infos 
-         WHERE table_id = ? AND status > 1 
-         ORDER BY id ASC 
+        `SELECT ${selectFields}
+         FROM game_round_infos
+         WHERE table_id = ? AND status > 1
+         ORDER BY id ASC
          LIMIT 100`,
         [tableId]
       )

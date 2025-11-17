@@ -25,6 +25,7 @@ services:
       - "9229:9229"  # Node.js 调试端口
     networks:
       - devcontainer_net
+      - centrifugo-net
     depends_on:
       # - mysql
       - redis-dev
@@ -90,4 +91,6 @@ volumes:
 networks:
   devcontainer_net:
     driver: bridge
+    external: true
+  centrifugo-net:
     external: true

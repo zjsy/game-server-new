@@ -107,8 +107,8 @@ export class TableService {
     )
 
     // 6. 将 sessionId 和 refreshToken 存储到 Redis
-    const redisSessionKey = `session:table:${table.id}`
-    const redisRefreshKey = `refresh:table:${table.id}:${sessionId}`
+    const redisSessionKey = `sys:session:table:${table.id}`
+    const redisRefreshKey = `sys:refresh:table:${table.id}:${sessionId}`
 
     // 使用 pipeline 批量操作 Redis
     const pipeline = this.fastify.redis.pipeline()
@@ -353,7 +353,7 @@ export class TableService {
       const { tableNo, tableId, sessionId } = decoded
 
       // 3. 检查 refresh token 是否在 Redis 中存在且有效
-      const redisRefreshKey = `refresh:table:${tableId}:${sessionId}`
+      const redisRefreshKey = `sys:refresh:table:${tableId}:${sessionId}`
       const storedRefreshToken = await this.fastify.redis.get(redisRefreshKey)
 
       if (!storedRefreshToken || storedRefreshToken !== oldRefreshToken) {
