@@ -3,7 +3,7 @@ import type { AuthenticatedRequest } from '../../../middlewares/jwt-auth.js'
 import { jwtAuthMiddleware } from '../../../middlewares/jwt-auth.js'
 import { success } from '../../../utils/http.utils.js'
 import { BaccService } from '../../../services/bacc.service.js'
-import { ApiType } from '../../../services/lock.service.js'
+import { ApiType } from '../../../infrastructure/lock.service.js'
 import { BaccDetails, CancelRequest, DealingRequest, SettleRequest } from '../../../types/common.types.js'
 
 const baccRoute: FastifyPluginAsync = async (fastify) => {

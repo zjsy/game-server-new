@@ -2,15 +2,14 @@
 version: '3.8'
 
 services:
-  # Fastify API - 开发容器
-  fastify-api-dev:
+  dealer-api-dev:
     build:
       context: .
       dockerfile: Dockerfile.dev
-    container_name: fastify-api-devcontainer
+    container_name: dealer-api-devcontainer
     volumes:
       - .:/app  # 挂载源码目录（移除 cached 选项以支持文件监听）
-      - /app/node_modules  # 保护 node_modules 不被覆盖
+      - dealer_node_modules:/app/node_modules  # 保护 node_modules 不被覆盖
       - ./logs:/app/logs
       # Git 配置挂载
       - ~/.gitconfig:/home/fastify/.gitconfig:ro
@@ -20,12 +19,14 @@ services:
     environment:
       - HOST=0.0.0.0
       - PORT=3000
+      - CHOKIDAR_USEPOLLING=true
+      - CHOKIDAR_INTERVAL=1000
     ports:
       - "3000:3000"
       - "9229:9229"  # Node.js 调试端口
     networks:
-      - devcontainer_net
-      - centrifugo-net
+      - game_server_net
+      - centrifugo_net
     depends_on:
       # - mysql
       - redis-dev
@@ -36,61 +37,27 @@ services:
     cap_add:
       - SYS_PTRACE
 
-  # MySQL 开发数据库
-  # mysql:
-  #   image: mysql:8.0
-  #   container_name: fastify-mysql-devcontainer
-  #   restart: unless-stopped
-  #   environment:
-  #     - MYSQL_ROOT_PASSWORD='${DB_PASSWORD}'
-  #     - MYSQL_DATABASE='${DB_DATABASE}'
-  #     - MYSQL_USER='${DB_USERNAME}'
-  #     - MYSQL_PASSWORD='${DB_PASSWORD}'
-  #   ports:
-  #     - "3306:3306"
-  #   volumes:
-  #     - mysql_dev_data:/var/lib/mysql
-  #   networks:
-  #     - devcontainer_net
-  #   command: --default-authentication-plugin=mysql_native_password
-  #   healthcheck:
-  #     test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "mysql", "--password=${DB_PASSWORD}"]
-  #     interval: 30s
-  #     timeout: 10s
-  #     retries: 5
-
   # Redis 开发缓存
   redis-dev:
     image: redis:7-alpine
-    container_name: fastify-redis-devcontainer
+    container_name: dealer-redis-devcontainer
     restart: unless-stopped
     ports:
       - "6381:6379"
     volumes:
       - redis_dev_data:/data
     networks:
-      - devcontainer_net
+      - game_server_net
     command: redis-server --appendonly yes
 
-  # 数据库管理工具
-  # adminer:
-  #   image: adminer:latest
-  #   container_name: fastify-adminer-devcontainer
-  #   restart: unless-stopped
-  #   ports:
-  #     - "8080:8080"
-  #   networks:
-  #     - devcontainer_net
-  #   environment:
-  #     - ADMINER_DEFAULT_SERVER=mysql
-
 volumes:
+  dealer_node_modules:
   mysql_dev_data:
   redis_dev_data:
 
 networks:
-  devcontainer_net:
+  game_server_net:
     driver: bridge
     external: true
-  centrifugo-net:
+  centrifugo_net:
     external: true

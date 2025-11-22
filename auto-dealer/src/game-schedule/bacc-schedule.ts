@@ -1,5 +1,6 @@
 import { BaccApiService } from "../const/centrifugo/bacc.api.service";
-import { LoginTableResponse, RoundStatus } from "../const/GameConst";
+import { RoundStatus } from "../const/GameConst";
+import { LoginTableResponse, TableInfo } from "../types/types";
 import {
   BaccCardPositionEnum,
   generateBaccRoundResult,
@@ -17,21 +18,9 @@ type Task = {
 //   { name: "settlement", fn: settlement, delay: 1500 },
 // ];
 
-type TableInfo = {
-  tableNo: string;
-  countdown: number;
-  roundNo: number;
-  type: number;
-  gameType: number;
-  playStatus: number;
-  currentShoe: number;
-  currentRoundId: number;
-  token: string;
-};
-
 export interface TaskPipeline {
   runPipeline(): Promise<void>;
-  start(data: LoginTableResponse): Promise<void>;
+  start(data: TableInfo): Promise<void>;
   stop(): void;
 }
 
@@ -57,28 +46,17 @@ export class BaccTaskPipeline implements TaskPipeline {
     }
   }
 
-  async start(data: LoginTableResponse) {
-    console.log("Bacc Task Pipeline Started", data);
+  async start(data: any) {
+    this.tableInfo = data;
     this.tasks = [
       { name: "startGame", fn: this.startGame, delay: 3000 },
       // { name: "dealingCards", fn: this.dealingCards, delay: data.countdown * 1000 + 3000},
       {
         name: "settlement",
         fn: this.settlement,
-        delay: data.countdown * 1000 + 5000,
+        delay: this.tableInfo.countdown * 1000 + 5000,
       },
     ];
-    this.tableInfo = {
-      tableNo: data.table_no,
-      countdown: data.countdown,
-      roundNo: data.current_round_no,
-      type: data.type,
-      gameType: data.game_type,
-      playStatus: data.playStatus,
-      currentShoe: data.current_shoe,
-      currentRoundId: data.current_round_id,
-      token: data.token,
-    };
     this.running = true;
     const startIndex = this.selectEntryIndex(data);
     let input = data;
@@ -119,10 +97,12 @@ export class BaccTaskPipeline implements TaskPipeline {
     this.tableInfo.currentRoundId = data.id;
     this.tableInfo.roundNo = data.roundNo;
     this.tableInfo.currentShoe = data.shoeNo;
+    this.tableInfo.playStatus = RoundStatus.Betting;
     return data;
   };
 
   settlement = async (_input: any) => {
+    this.tableInfo.playStatus = RoundStatus.Dealing;
     console.log("Cards Dealing", new Date(), this.tableInfo);
     const { details } = generateBaccRoundResult();
     if (this.tableInfo.type === 0) {
@@ -159,6 +139,7 @@ export class BaccTaskPipeline implements TaskPipeline {
     if (res.data.code !== 0) {
       throw new Error(`Settlement Failed: ${res.data.msg || "Unknown error"}`);
     }
+    this.tableInfo.playStatus = RoundStatus.Over;
     return res.data;
   };
 

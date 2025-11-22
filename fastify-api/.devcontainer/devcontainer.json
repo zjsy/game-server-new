@@ -1,7 +1,7 @@
 {
   "name": "Fastify Game Server",
   "dockerComposeFile": "../docker-compose-dev.yml",
-  "service": "fastify-api-dev",
+  "service": "dealer-api-dev",
   "workspaceFolder": "/app",
   // 配置 VS Code
   "customizations": {
@@ -32,9 +32,9 @@
   "forwardPorts": [
     3000,
     9229,
-    3306,
+    // 3306,
     6381,
-    8080
+    // 8080
   ],
   "portsAttributes": {
     "3000": {
@@ -44,15 +44,15 @@
     "9229": {
       "label": "Node.js Debug"
     },
-    "3306": {
-      "label": "MySQL"
-    },
+    // "3306": {
+    //   "label": "MySQL"
+    // },
     "6381": {
       "label": "Redis"
     },
-    "8080": {
-      "label": "Adminer"
-    }
+    // "8080": {
+    //   "label": "Adminer"
+    // }
   },
   // 容器启动后执行的命令 - Windows 宿主机测试版本
   "postCreateCommand": "sudo chown -R fastify:fastify /app && npm install",

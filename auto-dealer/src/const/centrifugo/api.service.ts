@@ -1,6 +1,6 @@
 import axios from "axios";
 import { AxiosClient } from "../../utils/axios-utils";
-import { BaseResponse, LoginTableResponse } from "../GameConst";
+import { BaseResponse, LoginTableResponse } from "../../types/types";
 
 const baseUrl = import.meta.env.VITE_BASE_URL || "";
 export async function loginTableApi(data: { t: string; p: string }) {

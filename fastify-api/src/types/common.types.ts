@@ -126,3 +126,10 @@ export type ConfigCache = {
   bakVideoUrl: string;
   resourceUrl: string;
 }
+
+export type SettleRoundData<T extends BaccDetails | DtDetails | NiuDetails | null> = {
+  // roundId: number;
+  round_sn: string;
+  result: number[];
+  details: T
+}

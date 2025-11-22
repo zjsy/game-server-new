@@ -1,12 +1,13 @@
 import { FastifyInstance } from 'fastify'
 import { GameRepository } from '../repositories/game.repository.js'
-import { GameBroadcastService } from './centrifugo.service.js'
+import { GameBroadcastService } from '../infrastructure/centrifugo.service.js'
 import { GameType, OrderStatus, RoundStatus, UserType } from '../constants/game.constants.js'
 import { BetOrder, BetTempOrder, Round } from '../types/table.types.js'
 import { TableRepository } from '../repositories/table.repository.js'
 import { PushConst } from '../constants/push.onstants.js'
 import { UserRepository } from '../repositories/user.repository.js'
 import { QueueManager } from './queue.service.js'
+import { SettleRoundData } from '../types/common.types.js'
 
 export class GameBaseService {
   protected tableRepository: TableRepository
@@ -147,7 +148,7 @@ export class GameBaseService {
     }
   }
 
-  protected async saveOrderData (tempOrder: BetTempOrder, roundInfo: Round, rolling:number, comm:number, winLose:number) {
+  protected async saveOrderData (tempOrder: BetTempOrder, settleRoundData: SettleRoundData<any>, rolling:number, comm:number, winLose:number) {
     const order: Partial<BetOrder> = {
       lobby_no: tempOrder.lobby_no,
       table_no: tempOrder.table_no,
@@ -169,8 +170,8 @@ export class GameBaseService {
       user_type: tempOrder.user_type,
       rolling,
       comm,
-      round_details: roundInfo.details,
-      round_result: roundInfo.result,
+      round_details: settleRoundData.details,
+      round_result: JSON.stringify(settleRoundData.result),
       settle_result: winLose,
       status: OrderStatus.Settled,
       settle_time: new Date(),

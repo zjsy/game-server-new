@@ -1,5 +1,5 @@
 import { FastifyInstance } from 'fastify'
-import { BaccDetails, SettleRequest, SettleResponse, StartResponse } from '../types/common.types.js'
+import { BaccDetails, SettleRequest, SettleResponse, SettleRoundData, StartResponse } from '../types/common.types.js'
 import { BusinessError, ErrorCode } from '../utils/http.utils.js'
 import { GameType, OrderStatus, RoundStatus, UserType } from '../constants/game.constants.js'
 import { BetOrder, BetTempOrder, Dealer, Round } from '../types/table.types.js'
@@ -146,7 +146,9 @@ export class BaccService extends GameBaseService {
 
   // 更新用户
   async settle (data: SettleRequest<BaccDetails>): Promise<SettleResponse> {
-    const roundInfo = await this.gameRepository.getRoundById(data.roundId, ['id', 'round_sn', 'end_time', 'game_type', 'table_id', 'status'])
+    const roundInfo = await this.gameRepository.getRoundById(data.roundId, ['id', 'round_sn', 'end_time', 'game_type', 'table_id', 'status']) as {
+      id: number; round_sn: string; end_time: Date; game_type: number; table_id: number; status: number
+    }
     if (!roundInfo) {
       throw new BusinessError(ErrorCode.ROUND_NOT_EXIST)
     }
@@ -179,7 +181,7 @@ export class BaccService extends GameBaseService {
     } else {
       hitRes = data.result
     }
-    updateData.result = hitRes.join()
+    updateData.result = JSON.stringify(hitRes)
     updateData.settle_time = settleTime
     updateData.status = RoundStatus.Over
     await this.gameRepository.updateRoundById(roundInfo.id, updateData)
@@ -188,9 +190,9 @@ export class BaccService extends GameBaseService {
     // redis 插入这靴的局信息
     this.gameRepository.insertRoundCache(roundInfo.table_id, roundInfo.game_type, {
       id: roundInfo.id,
-      result: roundInfo.result,
-      details: roundInfo.details,
-      status: roundInfo.status,
+      result: hitRes,
+      details: data.details,
+      status: RoundStatus.Over,
     })
 
     // !判断好路,在荷官端计算，荷官端因为也有显示需求
@@ -207,13 +209,13 @@ export class BaccService extends GameBaseService {
     this.broadcastService?.globalBroadcast(PushConst.ON_GAME_RESULT, {
       tableId: roundInfo.table_id,
       roundId: roundInfo.id,
-      result: roundInfo.result,
-      details: roundInfo.details,
+      result: hitRes,
+      details: data.details,
       goodType,
     })
     const betOrders = await this.gameRepository.getTempOrderListByRoundId(roundInfo.id)
     for (const order of betOrders) {
-      this.settleBaccOrder(order, roundInfo, hitRes, points)
+      this.settleBaccOrder(order, { round_sn: roundInfo.round_sn, result: hitRes, details: data.details }, hitRes, points)
     }
 
     return { settledAt: settleTime }
@@ -369,16 +371,16 @@ export class BaccService extends GameBaseService {
     return newShoeNo
   }
 
-  private async settleBaccOrder (tempOrder: BetTempOrder, roundInfo: Round, hitRes:number[], points: { bp: number; pp: number } | null) {
+  private async settleBaccOrder (tempOrder: BetTempOrder, settleRoundData: SettleRoundData<BaccDetails>, hitRes:number[], points: { bp: number; pp: number } | null) {
     const totalBetMoney = tempOrder.bet_amount // 下注总额
     const betDetails = tempOrder.bet
-    const winLose = calWinloseForBacc(betDetails, hitRes, roundInfo.details as BaccDetails, points)
+    const winLose = calWinloseForBacc(betDetails, hitRes, settleRoundData.details as BaccDetails, points)
     // 计算洗码
     const rolling = calRollingForBacc(totalBetMoney, betDetails, hitRes)
     const comm = await this.userRepository.getUserCommCache(tempOrder.user_id)
-    const order = await this.saveOrderData(tempOrder, roundInfo, rolling, comm, winLose)
+    const order = await this.saveOrderData(tempOrder, settleRoundData, rolling, comm, winLose)
     // 修改金额
-    this.queueService?.settlement?.schedule('settle', order as BetOrder, roundInfo.round_sn, winLose)
+    this.queueService?.settlement?.schedule('settle', order as BetOrder, settleRoundData.round_sn, winLose)
   }
 
   private async reSettleBaccOrder (order: BetOrder, roundInfo: Round, hitRes:number[], points: { bp: number; pp: number } | null) {

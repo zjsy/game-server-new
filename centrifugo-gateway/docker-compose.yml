@@ -21,7 +21,7 @@ services:
     restart: always
     ports:
       - "8001:8000"          # 客户端连接端口
-    # command: ["centrifugo", "--config", "/centrifugo/config.json"]
+    command: ["centrifugo", "--config", "/centrifugo/config.json"]
     volumes:
       - ./config.json:/centrifugo/config.json:ro
     depends_on:
@@ -92,5 +92,5 @@ volumes:
 
 networks:
   centrifugo_net:
-    name: centrifugo-net
+    name: centrifugo_net
     driver: bridge

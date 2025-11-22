@@ -14,7 +14,7 @@ export class UserRepository extends BaseRepository {
  * @param where
  * @param select
  */
-  async getUserInfo (where: Partial<User>, select?: (keyof User)[]) {
+  async findUser (where: Partial<User>, select?: (keyof User)[]) {
     if (!select) {
       select = [
         'id',
@@ -25,13 +25,14 @@ export class UserRepository extends BaseRepository {
         'agent_sn',
         'agent_id',
         'nickname',
+        // 'password',
         'user_type',
         'wallet_type',
         'status',
         'bet_status',
         'commission',
         'comm_status',
-        'last_login_ip', // IP是因为，session里面的ip是代理的ip,所以真实ip使用这个
+        'last_login_ip',
         'last_login_device',
       ]
     }
@@ -43,7 +44,7 @@ export class UserRepository extends BaseRepository {
  * @param where
  * @param data
  */
-  async updateUserInfo (where: Partial<User>, data: Partial<User>) {
+  async updateUser (where: Partial<User>, data: Partial<User>) {
     return await this.update('game_users', where, data)
   }
 
@@ -74,8 +75,8 @@ export class UserRepository extends BaseRepository {
  */
   async getUserCache (uid:number) {
     let userInfo = (await this.redis.hgetall(`front:u:${uid}`)) as UserCache
-    if (JSON.stringify(userInfo) == '{}') {
-      userInfo = (await (this.getUserInfo({ id: uid }) as Promise<unknown>)) as UserCache
+    if (Object.keys(userInfo).length === 0) {
+      userInfo = (await (this.findUser({ id: uid }) as Promise<unknown>)) as UserCache
       // await this.redis.hmset(`front:u:${uid}`, userInfo);
     }
     return userInfo

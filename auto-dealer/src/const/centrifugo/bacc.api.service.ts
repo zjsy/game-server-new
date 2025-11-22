@@ -3,7 +3,7 @@ import {
   SettleRequest,
   ShuffleResponse,
   StartResponse,
-} from "../GameConst";
+} from "../../types/types";
 import { BaseApiClient } from "./api.service";
 
 export class BaccApiService extends BaseApiClient {

@@ -3,7 +3,7 @@ import * as crypto from 'crypto'
 import { FastifyInstance } from 'fastify'
 import { GameAgentRow } from '../types/table.types.js'
 
-export enum ApiErrorCode {
+export enum ThirdApiErrorCode {
   REQUEST_ERR = 900, // 请求失败,
   TIME_OUT = 901, // 请求超时,
   RETURN_ERR = 902, // 返回数据格式错误
@@ -46,18 +46,18 @@ export class ApiService {
     return this.fastify.redis
   }
 
-  async getUserBalance (agentSn: string, data: { username: string; currency: string; gameType?: number }) {
-    return this.gamePost(agentSn, 'getUserBalance', data)
-  }
+  // async getUserBalance (agentSn: string, data: { username: string; currency: string; gameType?: number }) {
+  //   return this.gamePost(agentSn, 'getUserBalance', data)
+  // }
 
-  // 暂时同步下注,不使用取消下注,有点麻烦
-  async placeBet (agentSn: string, betData: BetData) {
-    return this.gamePost(agentSn, 'placeBet', betData)
-  }
+  // // 暂时同步下注,不使用取消下注,有点麻烦
+  // async placeBet (agentSn: string, betData: BetData) {
+  //   return this.gamePost(agentSn, 'placeBet', betData)
+  // }
 
-  async reverseBet (agentSn: string, data: reverseBetData) {
-    return this.gamePost(agentSn, 'reverseBet', data)
-  }
+  // async reverseBet (agentSn: string, data: reverseBetData) {
+  //   return this.gamePost(agentSn, 'reverseBet', data)
+  // }
 
   async settle (agentSn: string, data: SettleData) {
     return this.gamePost(agentSn, 'settle', data)
@@ -92,21 +92,21 @@ export class ApiService {
     } catch (err) {
       // FetchError
       const error = err as { type?: string }
-      const errCode = error.type === 'request-timeout' ? ApiErrorCode.TIME_OUT : ApiErrorCode.REQUEST_ERR
+      const errCode = error.type === 'request-timeout' ? ThirdApiErrorCode.TIME_OUT : ThirdApiErrorCode.REQUEST_ERR
       throw new ApiError(error.type || 'unknown error', errCode, { api, data })
     }
 
     if (response.statusCode !== 200) {
-      throw new ApiError('response status err', ApiErrorCode.REQUEST_ERR, { api, data })
+      throw new ApiError('response status err', ThirdApiErrorCode.REQUEST_ERR, { api, data })
     }
     let res: GameApiResponse
     try {
       res = await response.body.json() as GameApiResponse
     } catch {
-      throw new ApiError('body parse json err', ApiErrorCode.RETURN_ERR, { api, data })
+      throw new ApiError('body parse json err', ThirdApiErrorCode.RETURN_ERR, { api, data })
     }
     if (!(res && res.errorCode === 0)) {
-      throw new ApiError(`api return error:${res.message}`, res.errorCode || ApiErrorCode.UNKNOWN_ERR, { api, data })
+      throw new ApiError(`api return error:${res.message}`, res.errorCode || ThirdApiErrorCode.UNKNOWN_ERR, { api, data })
     }
     return res
   }

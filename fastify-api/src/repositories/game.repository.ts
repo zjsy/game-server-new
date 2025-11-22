@@ -4,8 +4,9 @@ import { BetOrder, BetOrderRow, BetTempOrder, BetTempOrderRow, GameConfigRow, Ro
 import { ConfigCache } from '../types/common.types.js'
 import { GameType, RoundStatus } from '../constants/game.constants.js'
 import { isRed, rouStats } from '../constants/roulette.constants.js'
+import { mapRowsJson, parseJsonFields } from '../utils/json.parse.utils.js'
 
-type RoundCacheData<T = unknown> = { id: number; result?: string, details?: T, status: number }
+type RoundCacheData<T = unknown> = { id: number; result?: number[], details?: T, status: number }
 export class GameRepository extends BaseRepository {
   constructor (protected fastify: FastifyInstance) {
     super(fastify)
@@ -39,8 +40,9 @@ export class GameRepository extends BaseRepository {
     return await this.delete('game_bet_temp_orders', { round_id: roundId })
   }
 
-  async getOrderListByRoundId (roundId: number, fields?: (keyof BetOrder)[]): Promise<BetOrderRow[]> {
-    return await this.get<BetOrderRow>('game_bet_orders', { round_id: roundId }, fields)
+  async getOrderListByRoundId (roundId: number, fields?: (keyof BetOrder)[]): Promise<BetOrder[]> {
+    const betOrderRaw = await this.get<BetOrderRow>('game_bet_orders', { round_id: roundId }, fields)
+    return mapRowsJson(betOrderRaw, ['bet', 'round_result', 'round_details']) as BetOrder[]
   }
 
   /**
@@ -66,7 +68,7 @@ export class GameRepository extends BaseRepository {
      * @param fields 要查询的字段数组，默认查询所有字段
      * @returns 局信息或 null
      */
-  async getRoundById (roundId: number, fields?: (keyof Round)[]): Promise<Round | null> {
+  async getRoundById (roundId: number, fields?: (keyof Round)[]): Promise<Partial<Round> | null> {
     const selectFields = fields && fields.length > 0 ? fields.join(', ') : '*'
     const rows = await this.query<RoundRow[]>(
         `SELECT ${selectFields} FROM game_round_infos WHERE id = ? LIMIT 1`,
@@ -304,7 +306,7 @@ export class GameRepository extends BaseRepository {
       // 拿到下注红黑单双统计
       const stats = await this.redis.hgetall(`sys:roule_stats_t:${tableId}`)
       // 下面这个判断可以不要
-      // if (JSON.stringify(stats) !== '{}') {
+      // if (Object.keys(stats).length !== 0) {
       red = (Number(stats.red) * 100) / total
       black = (Number(stats.black) * 100) / total
       odd = (Number(stats.odd) * 100) / total
@@ -406,21 +408,6 @@ export class GameRepository extends BaseRepository {
   }
 
   async updateRouletteRankingCache (tableId: number | string, curNum: number) {
-    const rouLen = await this.redis.llen(`sys:round_t:${tableId}`)
-    if (rouLen >= 100) {
-      // 获取第一个数据
-      const firstRoundString = await this.redis.lrange(`sys:round_t:${tableId}`, 0, 1)
-      const round = JSON.parse(firstRoundString[0])
-      if (round.status !== RoundStatus.Cancel) {
-        const firstRoundNum = round.details.n
-        const pipe = this.redis.pipeline()
-        pipe.zincrby(`sys:roule_rank_t:${tableId}`, -1, firstRoundNum)
-        pipe.zincrby(`sys:roule_rank_t:${tableId}`, 1, curNum.toString())
-        pipe.exec()
-      }
-    } else {
-      this.redis.zincrby(`sys:roule_rank_t:${tableId}`, 1, curNum.toString())
-    }
   }
 
   // async setGoodRoadCache (tableId: number | string, gameRes: any[]) {

@@ -7,11 +7,11 @@
 fastify-api/
 ├── .devcontainer/
 │   ├── devcontainer.json      # 主配置文件
-│   ├── docker-compose.yml     # Dev Container 专用编排
-│   └── Dockerfile            # Dev Container 专用镜像
 └── .vscode/
     ├── launch.json           # 调试配置
     └── tasks.json           # 任务配置
+├── docker-compose-dev.yml     # Dev Container 专用编排
+├── Dockerfile.dev            # Dev Container 专用镜像
 ```
 
 ## 🎯 如何使用 Dev Container
@@ -202,3 +202,34 @@ Ctrl+Shift+P → Developer: Reload Window
 2. 选择 "Reopen in Container"
 3. 等待环境准备完成
 4. 开始编码！ 🎉
+
+
+# 关于热更新
+Fastify CLI 依赖 chokidar 监听文件变更。
+
+在 Docker bind mount（尤其是 Windows / macOS → Linux 容器） 中：
+
+inotify 不会触发
+
+chokidar 默认监听不到变化
+
+所以 Fastify CLI 根本不重启服务
+
+加入：
+
+CHOKIDAR_USEPOLLING=true
+
+
+会让 chokidar 进入“轮询模式”：
+
+不依赖 inotify
+
+每隔几百 ms 扫描一次文件是否改变
+
+bind mount 100% 能检测到变化
+
+与 Fastify CLI 自带的 --watch-options={usePolling:true} 不同的是：
+
+你必须通过环境变量强制 chokidar 本身启用 polling，CLI 层设置不起作用。
+
+所以这个环境变量才是决定性因素。

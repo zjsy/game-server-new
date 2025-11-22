@@ -5,7 +5,7 @@ import { TransactionsType, UserType, UserWalletType } from '../../constants/game
 import { PushConst } from '../../constants/push.onstants.js'
 import { BetOrder, UserWalletRow } from '../../types/table.types.js'
 import { v1 as uuidv1 } from 'uuid'
-import { GameApiResponse } from '../api.service.js'
+import { GameApiResponse } from '../../infrastructure/api.service.js'
 import { UserRepository } from '../../repositories/user.repository.js'
 
 type SettleType = 'settle' | 'resettle' | 'cancel'

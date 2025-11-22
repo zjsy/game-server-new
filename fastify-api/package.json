@@ -15,7 +15,7 @@
     "build": "tsc",
     "watch": "tsc -w",
     "dev": "npm run build && concurrently -k -p \"[{name}]\" -n \"TypeScript,App\" -c \"yellow.bold,cyan.bold\" \"npm:watch\" \"npm:dev:start\"",
-    "dev:start": "fastify start --ignore-watch=.ts$ -w -l info -P dist/app.js",
+    "dev:start": "fastify start -w --watch-dir=dist --ignore-watch='.*' -l info -P dist/app.js",
     "lint": "eslint . --fix",
     "pm2:start": "pm2 start ecosystem.config.cjs --env production",
     "pm2:stop": "pm2 stop ecosystem.config.cjs",

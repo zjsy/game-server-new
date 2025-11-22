@@ -1,8 +1,8 @@
 import fp from 'fastify-plugin'
-import { GameBroadcastService } from '../services/centrifugo.service.js'
+import { GameBroadcastService } from '../infrastructure/centrifugo.service.js'
 import { QueueManager } from '../services/queue.service.js'
-import { LockService } from '../services/lock.service.js'
-import { ApiService } from '../services/api.service.js'
+import { LockService } from '../infrastructure/lock.service.js'
+import { ApiService } from '../infrastructure/api.service.js'
 
 declare module 'fastify' {
   interface FastifyInstance {
