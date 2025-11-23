@@ -39,7 +39,7 @@ services:
 
   # Redis 开发缓存
   redis-dev:
-    image: redis:7-alpine
+    image: redis:alpine
     container_name: dealer-redis-devcontainer
     restart: unless-stopped
     ports:
@@ -52,12 +52,10 @@ services:
 
 volumes:
   dealer_node_modules:
-  mysql_dev_data:
   redis_dev_data:
 
 networks:
   game_server_net:
-    driver: bridge
     external: true
   centrifugo_net:
     external: true

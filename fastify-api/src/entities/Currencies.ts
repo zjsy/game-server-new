@@ -1,14 +1,8 @@
-import {Entity, PrimaryGeneratedColumn, Column, Index} from 'typeorm';
+export interface GameCurrencies {
 
-@Entity()
-export class GameCurrencies {
-    @PrimaryGeneratedColumn()
-    id: number;
+  id: number;
 
-    @Index()
-    @Column()
-    sign: string;
+  sign: string;
 
-    @Column()
-    rate: number;
+  rate: number;
 }

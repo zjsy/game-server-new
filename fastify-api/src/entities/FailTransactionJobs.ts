@@ -1,31 +1,19 @@
-import {Entity, PrimaryGeneratedColumn, Column} from 'typeorm';
+export interface GameFailTransactionJobs {
+  id: number;
 
-@Entity()
-export class GameFailTransactionJobs {
-    @PrimaryGeneratedColumn()
-    id: number;
+  round_id: number;
 
-    @Column()
-    round_id: number;
+  round_sn: string;
 
-    @Column()
-    round_sn: string;
+  user_id: number;
 
-    @Column()
-    user_id: number;
+  username: string;
 
-    @Column()
-    username: string;
+  type: number;
 
-    @Column()
-    type: number;
+  data: string;
 
-    @Column()
-    data: string;
+  status: number;
 
-    @Column()
-    status: number;
-
-    @Column()
-    created_at: Date;
+  created_at: Date;
 }

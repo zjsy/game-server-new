@@ -140,6 +140,9 @@ export class BaccTaskPipeline implements TaskPipeline {
       throw new Error(`Settlement Failed: ${res.data.msg || "Unknown error"}`);
     }
     this.tableInfo.playStatus = RoundStatus.Over;
+    if (this.tableInfo.currentRoundId >= 99) { 
+      this.changeShoes();
+    }
     return res.data;
   };
 

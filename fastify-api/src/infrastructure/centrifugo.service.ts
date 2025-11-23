@@ -1,5 +1,5 @@
 import { FastifyInstance } from 'fastify'
-import { PushConst } from '../constants/push.onstants.js'
+import { PushConst } from '../constants/push.constants.js'
 import { CentrifugoClient } from '../utils/centrifugo.js'
 
 // 游戏消息类型定义

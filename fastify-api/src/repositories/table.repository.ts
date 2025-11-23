@@ -1,7 +1,8 @@
+import { Dealer, DealerRow } from '../entities/Dealer.js'
+import { Table, TableRow } from '../entities/TableInfo.js'
+import { TableCache } from '../types/cache.types.js'
 import { BaseRepository } from './base.repository.js'
 import { FastifyInstance } from 'fastify'
-import { Dealer, DealerRow, Table, TableRow } from '../types/table.types.js'
-import { TableCache } from '../types/common.types.js'
 
 export class TableRepository extends BaseRepository {
   constructor (protected fastify: FastifyInstance) {
@@ -14,7 +15,7 @@ export class TableRepository extends BaseRepository {
    * @param fields 要查询的字段数组，默认查询所有字段
    * @returns 桌台信息或 null
    */
-  findTable (where: Partial<Table>, fields?: (keyof Table)[]): Promise<Table | null> {
+  findTable (where: Partial<Table>, fields?: (keyof Table)[]) {
     return this.find<TableRow>('game_tables', where, fields)
   }
 
@@ -42,7 +43,7 @@ export class TableRepository extends BaseRepository {
     await this.redis.hmset(`sys:t:${tableId}`, table)
   }
 
-  async findDealerByNo (dealerNo: string, fields: (keyof Dealer)[]): Promise< Dealer | null> {
+  async findDealerByNo (dealerNo: string, fields: (keyof Dealer)[]) {
     return this.find<DealerRow>('game_dealers', { dealer_no: dealerNo }, fields)
   }
 

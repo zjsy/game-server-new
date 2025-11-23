@@ -62,9 +62,9 @@ import { QueueManager } from '../services/queue.service.js'
 
 export default fp(async (fastify) => {
   const queueManager = new QueueManager(fastify)
-  
+
   fastify.decorate('queueManager', queueManager)
-  
+
   // 优雅关闭
   fastify.addHook('onClose', async () => {
     await queueManager.closeAll()
@@ -107,7 +107,7 @@ await fastify.queueManager.broadcast.scheduleOnce(
 )
 
 // 取消重复广播
-await fastify.queueManager.broadcast.cancelRepeat(tableId)
+await fastify.queueManager.broadcast.stopRepeat(tableId)
 ```
 
 ### 4. 健康检查
@@ -146,26 +146,26 @@ export default async (fastify: FastifyInstance) => {
   fastify.post('/games/:tableId/start', async (request, reply) => {
     const { tableId } = request.params
     const { roundId } = request.body
-    
+
     // 调度30秒后停止下注
     await fastify.queueManager.stopBetting.schedule(tableId, roundId, 30000)
-    
+
     // 开始定时广播
     await fastify.queueManager.broadcast.scheduleRepeat(tableId)
-    
+
     return { success: true }
   })
-  
+
   // 结束游戏
   fastify.post('/games/:tableId/end', async (request, reply) => {
     const { tableId } = request.params
-    
+
     // 停止广播
-    await fastify.queueManager.broadcast.cancelRepeat(tableId)
-    
+    await fastify.queueManager.broadcast.stopRepeat(tableId)
+
     return { success: true }
   })
-  
+
   // 队列健康检查
   fastify.get('/queues/health', async (request, reply) => {
     const health = await fastify.queueManager.getHealth()
@@ -203,10 +203,10 @@ export class SettlementQueueService extends BaseQueueService<SettlementJob> {
 
   protected async processJob (job: Job<SettlementJob>): Promise<void> {
     const { tableId, roundId, bets } = job.data
-    
+
     // 实现结算逻辑
     this.fastify.log.info({ tableId, roundId }, 'Processing settlement')
-    
+
     // 调用结算服务
     // await this.fastify.gameService.settle(tableId, roundId, bets)
   }

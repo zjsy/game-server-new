@@ -1,5 +1,5 @@
 import type { FastifyInstance } from 'fastify'
-import { StopBettingQueueService } from './queues/stop-betting-queue.service.js'
+import { Redis } from 'ioredis'
 import { BroadcastQueueService } from './queues/broadcast-queue.service.js'
 import { SettleQueueService } from './queues/settle-queue.service.js'
 
@@ -8,7 +8,6 @@ import { SettleQueueService } from './queues/settle-queue.service.js'
  * 统一管理所有队列服务,提供统一的入口
  */
 export class QueueManager {
-  public stopBetting: StopBettingQueueService
   public broadcast: BroadcastQueueService
   // 可以继续添加更多队列服务...
   public settlement: SettleQueueService
@@ -16,10 +15,15 @@ export class QueueManager {
   // public emailQueue: EmailQueueService
 
   constructor (fastify: FastifyInstance) {
+    const redis = new Redis({
+      port: fastify.config.BULLMQ_REDIS_PORT || 6379,
+      host: fastify.config.BULLMQ_REDIS_HOST || 'localhost',
+      password: fastify.config.BULLMQ_REDIS_PASSWORD,
+      maxRetriesPerRequest: null,  // 必须设置为 null
+    })
     // 初始化各个队列服务
-    this.stopBetting = new StopBettingQueueService(fastify)
-    this.broadcast = new BroadcastQueueService(fastify)
-    this.settlement = new SettleQueueService(fastify)
+    this.broadcast = new BroadcastQueueService(fastify, redis)
+    this.settlement = new SettleQueueService(fastify, redis)
 
     fastify.log.info('QueueManager initialized successfully')
   }
@@ -28,14 +32,15 @@ export class QueueManager {
    * 获取所有队列的健康状态
    */
   async getHealth () {
-    const [stopBettingHealth, broadcastHealth] = await Promise.all([
-      this.stopBetting.getHealth(),
+    const [broadcastHealth, settlementHealth] = await Promise.all([
       this.broadcast.getHealth(),
+      this.settlement.getHealth(),
     ])
 
     return {
-      stopBetting: stopBettingHealth,
       broadcast: broadcastHealth,
+      settlement: settlementHealth,
+
     }
   }
 
@@ -44,8 +49,8 @@ export class QueueManager {
    */
   async closeAll (): Promise<void> {
     await Promise.all([
-      this.stopBetting.close(),
       this.broadcast.close(),
+      this.settlement.close(),
     ])
   }
 }

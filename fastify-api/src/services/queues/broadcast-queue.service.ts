@@ -1,7 +1,7 @@
-import { Job } from 'bullmq'
+import { Job, RedisClient } from 'bullmq'
 import type { FastifyInstance } from 'fastify'
 import { BaseQueueService } from './base-queue.service.js'
-import { PushConst } from '../../constants/push.onstants.js'
+import { PushConst } from '../../constants/push.constants.js'
 
 interface BroadcastJob {
   tableId: number
@@ -14,8 +14,8 @@ interface BroadcastJob {
  * 处理游戏数据的定时广播任务
  */
 export class BroadcastQueueService extends BaseQueueService<BroadcastJob> {
-  constructor (fastify: FastifyInstance) {
-    super(fastify, 'game-broadcast', {
+  constructor (fastify: FastifyInstance, redis: RedisClient) {
+    super(fastify, 'game-broadcast', redis, {
       defaultJobOptions: {
         attempts: 2,
         removeOnComplete: true,
@@ -42,7 +42,8 @@ export class BroadcastQueueService extends BaseQueueService<BroadcastJob> {
   /**
    * 调度定时广播任务（重复执行）
    */
-  async scheduleRepeat (tableId: number, intervalMs: number = 3000): Promise<void> {
+  async scheduleRepeat (tableId: number, intervalMs: number = 3000, endTime?: number): Promise<void> {
+    this.fastify.log.error({ tableId }, `Add Broadcasting stats schedule for table ${tableId}`)
     await this.addJob(
       {
         tableId,
@@ -50,6 +51,7 @@ export class BroadcastQueueService extends BaseQueueService<BroadcastJob> {
       {
         repeat: {
           every: intervalMs, // 每 N 毫秒执行一次
+          endDate: endTime, // 结束时间
         },
         jobId: `broadcast:stats:${tableId}`, // 确保唯一
       }
@@ -72,15 +74,11 @@ export class BroadcastQueueService extends BaseQueueService<BroadcastJob> {
   /**
    * 取消重复广播任务
    */
-  async cancelRepeat (tableId: number): Promise<void> {
-    const jobId = `broadcast:stats:${tableId}`
-    const jobs = await this.getRepeatableJobs()
-    const job = jobs.find((j) => j.id === jobId)
-
-    if (job) {
-      await this.removeRepeatableByKey(job.key)
-      this.fastify.log.info({ tableId }, `Cancelled repeat broadcast for table ${tableId}`)
-    }
+  async stopRepeat (tableId: number): Promise<void> {
+    this.fastify.log.error({ tableId }, 'Stopped repeat broadcast')
+    const schedulerId = `broadcast:stats:${tableId}`
+    await this.removeSchedulerById(schedulerId)
+    this.fastify.log.error({ tableId }, 'Stopped repeat broadcast')
   }
 
   /**
@@ -88,7 +86,7 @@ export class BroadcastQueueService extends BaseQueueService<BroadcastJob> {
    */
   private async broadcastStats (tableId: number): Promise<void> {
     // TODO: 实现具体的广播统计数据逻辑
-    this.fastify.log.debug({ tableId }, `Broadcasting stats for table ${tableId}`)
+    this.fastify.log.info({ tableId }, `Broadcasting stats for table ${tableId}`)
     const gameRepository = this.fastify.repositories.game
     const betStateC = await gameRepository.getBetStatsCCache(tableId)
     const betStateN = await gameRepository.getBetStatsNCache(tableId)

@@ -4,7 +4,8 @@ import { jwtAuthMiddleware } from '../../../middlewares/jwt-auth.js'
 import { success } from '../../../utils/http.utils.js'
 import { BaccService } from '../../../services/bacc.service.js'
 import { ApiType } from '../../../infrastructure/lock.service.js'
-import { BaccDetails, CancelRequest, DealingRequest, SettleRequest } from '../../../types/common.types.js'
+import { BaccDetails } from '../../../types/game.types.js'
+import { DealingRequest, SettleRequest, CancelRequest } from '../../../types/request.types.js'
 
 const baccRoute: FastifyPluginAsync = async (fastify) => {
   const baccService = new BaccService(fastify)
@@ -70,7 +71,9 @@ const baccRoute: FastifyPluginAsync = async (fastify) => {
   })
 
   // POST /api/bacc/re-settle - 重新结算
-  fastify.post('/re-settle', async (request, reply) => {
+  fastify.post('/re-settle', {
+    preHandler: [jwtAuthMiddleware],
+  }, async (request, reply) => {
     const authRequest = request as AuthenticatedRequest
     const tableId = authRequest.tableId
     const data = request.body as SettleRequest<BaccDetails>
@@ -90,7 +93,9 @@ const baccRoute: FastifyPluginAsync = async (fastify) => {
   })
 
   // POST /api/bacc/cancel-round - 取消局
-  fastify.post('/cancel-round', async (request, reply) => {
+  fastify.post('/cancel-round', {
+    preHandler: [jwtAuthMiddleware],
+  }, async (request, reply) => {
     const authRequest = request as AuthenticatedRequest
     const tableId = authRequest.tableId
     const { roundId } = request.body as CancelRequest
@@ -109,7 +114,9 @@ const baccRoute: FastifyPluginAsync = async (fastify) => {
   })
 
   // POST /api/bacc/shuffle - 洗牌
-  fastify.post('/shuffle', async (request, reply) => {
+  fastify.post('/shuffle', {
+    preHandler: [jwtAuthMiddleware],
+  }, async (request, reply) => {
     const authRequest = request as AuthenticatedRequest
     const tableId = authRequest.tableId
 

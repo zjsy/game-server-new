@@ -1,16 +1,10 @@
-import {Entity, PrimaryGeneratedColumn, Column} from 'typeorm';
+export interface GameBetLimit {
 
-@Entity('game_bet_limit_groups')
-export class GameBetLimit {
-    @PrimaryGeneratedColumn()
-    id: number;
+  id: number;
 
-    @Column()
-    min: number;
+  min: number;
 
-    @Column()
-    max: number;
+  max: number;
 
-    @Column()
-    currency: string;
+  currency: string;
 }

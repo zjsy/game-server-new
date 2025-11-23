@@ -1,10 +1,11 @@
 import { BaseRepository } from './base.repository.js'
 import { FastifyInstance } from 'fastify'
-import { BetOrder, BetOrderRow, BetTempOrder, BetTempOrderRow, GameConfigRow, Round, RoundRow } from '../types/table.types.js'
-import { ConfigCache } from '../types/common.types.js'
 import { GameType, RoundStatus } from '../constants/game.constants.js'
 import { isRed, rouStats } from '../constants/roulette.constants.js'
-import { mapRowsJson, parseJsonFields } from '../utils/json.parse.utils.js'
+import { BetTempOrder, BetTempOrderRow, BetOrder, BetOrderRow, mapTempBetOrderRow, mapBetOrderRow, BetOrderRaw } from '../entities/BetOrder.js'
+import { GameConfigRow } from '../entities/GameConfigs.js'
+import { mapRoundRow, Round, RoundRow } from '../entities/RoundInfo.js'
+import { ConfigCache } from '../types/cache.types.js'
 
 type RoundCacheData<T = unknown> = { id: number; result?: number[], details?: T, status: number }
 export class GameRepository extends BaseRepository {
@@ -32,17 +33,21 @@ export class GameRepository extends BaseRepository {
     }
   }
 
-  async getTempOrderListByRoundId (roundId: number, fields?: (keyof BetTempOrder)[]): Promise<BetTempOrderRow[]> {
-    return await this.get<BetTempOrderRow>('game_bet_temp_orders', { round_id: roundId }, fields)
+  async getTempOrderListByRoundId (roundId: number): Promise<BetTempOrder[]> {
+    const tempOrderList = await this.get<BetTempOrderRow>('game_bet_temp_orders', { round_id: roundId })
+    return tempOrderList.map(mapTempBetOrderRow)
   }
 
-  async detelteTempOrderListByRoundId (roundId: number) {
+  async deleteTempOrderListByRoundId (roundId: number) {
     return await this.delete('game_bet_temp_orders', { round_id: roundId })
   }
 
-  async getOrderListByRoundId (roundId: number, fields?: (keyof BetOrder)[]): Promise<BetOrder[]> {
-    const betOrderRaw = await this.get<BetOrderRow>('game_bet_orders', { round_id: roundId }, fields)
-    return mapRowsJson(betOrderRaw, ['bet', 'round_result', 'round_details']) as BetOrder[]
+  async getOrderListByRoundId<F extends keyof BetOrder>(
+    roundId: number,
+    fields?: F[]
+  ): Promise<Pick<BetOrder, F>[]> {
+    const betOrderRaw = await this.get<BetOrderRow, F>('game_bet_orders', { round_id: roundId }, fields)
+    return betOrderRaw.map(mapBetOrderRow)
   }
 
   /**
@@ -51,8 +56,8 @@ export class GameRepository extends BaseRepository {
      * @param fields 要查询的字段数组，默认查询所有字段
      * @returns 局信息或 null
      */
-  async insertBetOrder (data: Partial<BetOrder>): Promise<number> {
-    const insertedId = await this.insert<BetOrder>('game_bet_orders', data)
+  async insertBetOrder (data: Partial<BetOrderRaw>): Promise<number> {
+    const insertedId = await this.insert<BetOrderRaw>('game_bet_orders', data)
     // bet_order表有自增id，一定会返回数字
     return insertedId!
   }
@@ -68,13 +73,13 @@ export class GameRepository extends BaseRepository {
      * @param fields 要查询的字段数组，默认查询所有字段
      * @returns 局信息或 null
      */
-  async getRoundById (roundId: number, fields?: (keyof Round)[]): Promise<Partial<Round> | null> {
+  async getRoundById (roundId: number, fields?: (keyof Round)[]) {
     const selectFields = fields && fields.length > 0 ? fields.join(', ') : '*'
     const rows = await this.query<RoundRow[]>(
         `SELECT ${selectFields} FROM game_round_infos WHERE id = ? LIMIT 1`,
         [roundId]
     )
-    return rows[0] || null
+    return mapRoundRow(rows[0]) || null
   }
 
   /**
@@ -123,7 +128,7 @@ export class GameRepository extends BaseRepository {
          ORDER BY id ASC`,
         [tableId, currentShoeNo]
       )
-      return rows
+      return rows.map(mapRoundRow)
     } else {
       // 其他游戏类型限制查询最近100局
       const rows = await this.query<RoundRow[]>(
@@ -134,7 +139,7 @@ export class GameRepository extends BaseRepository {
          LIMIT 100`,
         [tableId]
       )
-      return rows
+      return rows.map(mapRoundRow)
     }
   }
 

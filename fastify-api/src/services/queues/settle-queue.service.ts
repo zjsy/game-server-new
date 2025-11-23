@@ -1,12 +1,13 @@
-import { Job } from 'bullmq'
+import { Job, RedisClient } from 'bullmq'
 import type { FastifyInstance } from 'fastify'
 import { BaseQueueService } from './base-queue.service.js'
 import { TransactionsType, UserType, UserWalletType } from '../../constants/game.constants.js'
-import { PushConst } from '../../constants/push.onstants.js'
-import { BetOrder, UserWalletRow } from '../../types/table.types.js'
+import { PushConst } from '../../constants/push.constants.js'
 import { v1 as uuidv1 } from 'uuid'
 import { GameApiResponse } from '../../infrastructure/api.service.js'
 import { UserRepository } from '../../repositories/user.repository.js'
+import { BetOrder } from '../../entities/BetOrder.js'
+import { UserWalletRow } from '../../entities/UserWallet.js'
 
 type SettleType = 'settle' | 'resettle' | 'cancel'
 interface SettleJob {
@@ -22,8 +23,8 @@ interface SettleJob {
  * 处理游戏停止下注的定时任务
  */
 export class SettleQueueService extends BaseQueueService<SettleJob> {
-  constructor (fastify: FastifyInstance) {
-    super(fastify, 'game-settle', {
+  constructor (fastify: FastifyInstance, redis: RedisClient) {
+    super(fastify, 'game-settle', redis, {
       defaultJobOptions: {
         attempts: 5, // 结算业务更重要,重试次数更多
         backoff: {
@@ -206,7 +207,7 @@ export class SettleQueueService extends BaseQueueService<SettleJob> {
         gameId: roundSn,
         rolling: order.rolling,
         payout_time: order.settle_time,
-        gameInfos: order.round_details,
+        gameInfos: order.round_details ? order.round_details : order.round_result ? order.round_result : null,
         betInfos: order.bet,
       }
 

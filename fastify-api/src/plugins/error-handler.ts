@@ -1,7 +1,7 @@
 import type { FastifyPluginAsync, FastifyError, FastifyReply, FastifyRequest } from 'fastify'
 import fp from 'fastify-plugin'
 import { BusinessError } from '../utils/http.utils.js'
-import type { ApiResponse } from '../types/common.types.js'
+import { ApiResponse } from '../types/response.types.js'
 
 /**
  * 全局错误处理器插件

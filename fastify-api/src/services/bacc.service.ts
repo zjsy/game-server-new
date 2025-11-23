@@ -1,12 +1,16 @@
 import { FastifyInstance } from 'fastify'
-import { BaccDetails, SettleRequest, SettleResponse, SettleRoundData, StartResponse } from '../types/common.types.js'
 import { BusinessError, ErrorCode } from '../utils/http.utils.js'
 import { GameType, OrderStatus, RoundStatus, UserType } from '../constants/game.constants.js'
-import { BetOrder, BetTempOrder, Dealer, Round } from '../types/table.types.js'
-import { PushConst } from '../constants/push.onstants.js'
+import { PushConst } from '../constants/push.constants.js'
 import { getShoeNo } from '../utils/game.utils.js'
 import { calRollingForBacc, calWinloseForBacc, parseBaccPoint, parseBaccResult } from '../constants/bacc.constants.js'
 import { GameBaseService } from './game.base.service.js'
+import { BetTempOrder, BetOrder } from '../entities/BetOrder.js'
+import { Dealer } from '../entities/Dealer.js'
+import { Round } from '../entities/RoundInfo.js'
+import { BaccDetails, SettleRoundData } from '../types/game.types.js'
+import { SettleRequest } from '../types/request.types.js'
+import { StartResponse, SettleResponse } from '../types/response.types.js'
 
 export class BaccService extends GameBaseService {
   constructor (fastify: FastifyInstance) {
@@ -76,15 +80,8 @@ export class BaccService extends GameBaseService {
       round_end_time: endTime.getTime(),
     })
 
-    // 设置倒计时定时器 - 自动停止下注
-    this.queueService?.stopBetting?.schedule(
-      tableId,
-      insertId,
-      Number(tableInfo.countdown) * 1000
-    )
-
     // 设置定时广播定时器 - 定时推送下注统计
-    this.queueService?.broadcast?.scheduleRepeat(tableId, 3000)
+    this.queueService?.broadcast?.scheduleRepeat(tableId, 3000, endTime.getTime())
 
     // 推送前台信息,直接获取redis中保存的好路结果进行广播
     this.broadcastService?.globalBroadcast(PushConst.START_GAME, {
@@ -113,8 +110,7 @@ export class BaccService extends GameBaseService {
     }
     if (Number(tableCache.current_round_id) === roundId && Number(tableCache.play_status) === RoundStatus.Betting) {
       // 手动停止下注，清理所有定时器
-      this.queueService?.stopBetting.cancel(tableId, roundId)
-      this.queueService?.broadcast.cancelRepeat(tableId)
+      this.queueService?.broadcast.stopRepeat(tableId)
       const endTime = new Date()
       // 判断是否还是当前局，并且状态还在倒计时状态
       // 局状态和结束时间改变
@@ -307,7 +303,7 @@ export class BaccService extends GameBaseService {
       'comm',
     ])
     for (const order of betOrders) {
-      this.reSettleBaccOrder(order, roundInfo, hitRes, points)
+      this.reSettleBaccOrder(order as BetOrder, roundInfo, hitRes, points)
     }
 
     return { settledAt: settleTime }

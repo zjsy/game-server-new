@@ -1,4 +1,4 @@
-import { BaccDetails } from '../types/common.types.js'
+import { BaccDetails } from '../types/game.types.js'
 
 /**
  * 百家乐赔率

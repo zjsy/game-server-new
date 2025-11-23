@@ -1,8 +1,10 @@
 import { BaseRepository } from './base.repository.js'
 import { FastifyInstance } from 'fastify'
-import { User, UserBetStats, UserRow, UserWallet, UserWalletRow } from '../types/table.types.js'
-import { UserCache } from '../types/common.types.js'
 import { PoolConnection } from 'mysql2/promise'
+import { User, UserRow } from '../entities/User.js'
+import { UserBetStats } from '../entities/UserBetStats.js'
+import { UserWallet, UserWalletRow } from '../entities/UserWallet.js'
+import { UserCache } from '../types/cache.types.js'
 
 export class UserRepository extends BaseRepository {
   constructor (protected fastify: FastifyInstance) {

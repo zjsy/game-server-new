@@ -138,17 +138,19 @@ export class BaseRepository {
    * @param conn 可选的数据库连接
    * @returns 单个记录或null
    */
-  async find<T extends RowDataPacket, E = T>(
+  async find<T extends RowDataPacket, K extends keyof T = keyof T>(
     table: string,
-    where?: Partial<Pick<E, keyof E>>,
-    fields?: (keyof E)[],
+    where?: Partial<Pick<T, keyof T>>,
+    fields?: readonly K[],
     conn?: PoolConnection
-  ): Promise<T | null> {
-    const selectFields = fields && fields.length > 0 ? fields.map(f => String(f)).join(', ') : '*'
+  ): Promise<T | Pick<T, K> | null> {
+    const selectFields = fields && fields.length > 0
+      ? fields.map(f => String(f)).join(', ')
+      : '*'
+
     let sql = `SELECT ${selectFields} FROM ${table}`
     const values: unknown[] = []
 
-    // 构建 WHERE 子句
     if (where && Object.keys(where).length > 0) {
       const { whereClause, whereValues } = this.buildWhereClause(where)
       sql += ` WHERE ${whereClause}`
@@ -157,7 +159,8 @@ export class BaseRepository {
 
     sql += ' LIMIT 1'
 
-    const rows = await this.query<T[]>(sql, values, { useWrite: false, conn })
+    // 查询的实际列集合就是 Pick<T,K>
+    const rows = await this.query<Pick<T, K>[]>(sql, values, { useWrite: false, conn })
     return rows.length > 0 ? rows[0] : null
   }
 
@@ -170,10 +173,15 @@ export class BaseRepository {
    * @param conn 可选的数据库连接
    * @returns 记录数组
    */
-  async get<T extends RowDataPacket, E = T>(
+  /**
+   * 多个记录获取 (根据传入的 fields 自动推导返回字段类型)
+   * 不传 fields => 返回完整记录 T[]
+   * 传入 fields => 返回 Pick<T, K>[]
+   */
+  async get<T extends RowDataPacket, K extends keyof T = keyof T>(
     table: string,
-    where?: Partial<Pick<E, keyof E>>,
-    fields?: (keyof E)[],
+    where?: Partial<Pick<T, keyof T>>,
+    fields?: K[],
     options?: {
       orderBy?: string
       orderDirection?: 'ASC' | 'DESC'
@@ -181,7 +189,7 @@ export class BaseRepository {
       offset?: number
     },
     conn?: PoolConnection
-  ): Promise<T[]> {
+  ): Promise<Pick<T, K>[]> {
     const selectFields = fields && fields.length > 0 ? fields.map(f => String(f)).join(', ') : '*'
     let sql = `SELECT ${selectFields} FROM ${table}`
     const values: unknown[] = []
@@ -207,7 +215,9 @@ export class BaseRepository {
       }
     }
 
-    return await this.query<T[]>(sql, values, { useWrite: false, conn })
+    const rows = await this.query<T[]>(sql, values, { useWrite: false, conn })
+    // 当未传 fields 时 K = keyof T => Pick<T, K> 即 T
+    return rows as Pick<T, K>[]
   }
 
   /**

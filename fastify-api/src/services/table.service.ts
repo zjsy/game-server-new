@@ -1,13 +1,14 @@
 import { FastifyInstance } from 'fastify'
-import { DealerLoginResponse, RefreshTokenResponse, Round, TableLoginResponse } from '../types/table.types.js'
 import { TableRepository } from '../repositories/table.repository.js'
 import crypto from 'crypto'
 import { GameType, RoundStatus } from '../constants/game.constants.js'
 import { GameRepository } from '../repositories/game.repository.js'
 import { BusinessError, ErrorCode } from '../utils/http.utils.js'
 import { GameBroadcastService } from '../infrastructure/centrifugo.service.js'
-import { PushConst } from '../constants/push.onstants.js'
+import { PushConst } from '../constants/push.constants.js'
 import { JwtPayload } from '../middlewares/jwt-auth.js'
+import { Round } from '../entities/RoundInfo.js'
+import { TableLoginResponse, DealerLoginResponse, RefreshTokenResponse } from '../types/response.types.js'
 
 export class TableService {
   private tableRepository: TableRepository
@@ -319,13 +320,11 @@ export class TableService {
       'status',
     ])
     if (type === 1) {
-      roundList.forEach(round => {
-        round.details = round.result.split(',').map(item => {
-          return Number(item)
-        })
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        delete (round as any).result
-      })
+      for (const r of roundList) {
+        r.details = r.result as any
+        delete (r as any).result
+      }
+      return roundList
     }
     return roundList
   }

@@ -3,7 +3,7 @@ import type { AuthenticatedRequest } from '../../../middlewares/jwt-auth.js'
 import { jwtAuthMiddleware } from '../../../middlewares/jwt-auth.js'
 import { ErrorCode, success, BusinessError } from '../../../utils/http.utils.js'
 import { TableService } from '../../../services/table.service.js'
-import type { DealerLoginRequest, GetRoundListRequest, TableLoginRequest, TableMaintainRequest } from '../../../types/table.types.js'
+import type { DealerLoginRequest, GetRoundListRequest, TableLoginRequest, TableMaintainRequest } from '../../../types/request.types.js'
 
 const tableRoute: FastifyPluginAsync = async (fastify) => {
   const tableService = new TableService(fastify)

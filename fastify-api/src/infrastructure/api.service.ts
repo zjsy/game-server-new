@@ -1,7 +1,7 @@
 import { request } from 'undici'
 import * as crypto from 'crypto'
 import { FastifyInstance } from 'fastify'
-import { GameAgentRow } from '../types/table.types.js'
+import { GameAgentRow } from '../entities/Agent.js'
 
 export enum ThirdApiErrorCode {
   REQUEST_ERR = 900, // 请求失败,
@@ -195,7 +195,7 @@ export type SettleData = {
   tableId: string;
   gameId: string;
   payout_time: Date;
-  gameInfos: Record<string, unknown>;
+  gameInfos: Record<string, unknown> | number[] | null;
   betInfos: Record<string, unknown>;
 }
 

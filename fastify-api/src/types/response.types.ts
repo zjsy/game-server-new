@@ -1,8 +1,12 @@
+// 通用 HTTP 响应类型定义
+// 统一结构: { code: number; msg: string; data?: T }
+
 import { Round } from '../entities/RoundInfo.js'
 
-export interface TableLoginRequest {
-  t: string // table_no
-  p: string // password
+export type ApiResponse<T = unknown> = {
+  code: number
+  msg: string
+  data?: T
 }
 
 export interface TableLoginResponse {
@@ -25,23 +29,18 @@ export interface TableLoginResponse {
   roundCountdown: number
 }
 
-export interface DealerLoginRequest {
-  dealerNo: string
-}
-
 export interface DealerLoginResponse {
   nickname: string
   avatar: string
 }
 
-export interface TableMaintainRequest {
-  status: number
-}
-
-export interface GetRoundListRequest {
-  gameType: number
+export type StartResponse = {
+  id: number;
+  tableId: number
   shoeNo: number
-  type?: number
+  roundNo: number
+  roundSn: string
+  startTime: Date
 }
 
 export interface GetRoundListResponse {
@@ -52,4 +51,8 @@ export interface RefreshTokenResponse {
   token: string
   refreshToken: string
   expiresIn: string
+}
+
+export type SettleResponse = {
+  settledAt: Date;
 }

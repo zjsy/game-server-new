@@ -13,6 +13,10 @@ declare module 'fastify' {
   }
 }
 
+/**
+ * 游戏相关插件,因为依赖redis,repository等资源,所以必须在其他插件之后注册
+ * autoload是按照名字加载的,所以改名字为zgame
+ */
 export default fp(async (fastify) => {
   // console.warn('Initializing game plugin', fastify.config)
   // 创建单例服务

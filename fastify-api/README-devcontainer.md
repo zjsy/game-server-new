@@ -204,7 +204,7 @@ Ctrl+Shift+P → Developer: Reload Window
 4. 开始编码！ 🎉
 
 
-# 关于热更新
+## 关于热更新
 Fastify CLI 依赖 chokidar 监听文件变更。
 
 在 Docker bind mount（尤其是 Windows / macOS → Linux 容器） 中：
@@ -233,3 +233,26 @@ bind mount 100% 能检测到变化
 你必须通过环境变量强制 chokidar 本身启用 polling，CLI 层设置不起作用。
 
 所以这个环境变量才是决定性因素。
+
+## 关于forwardPorts 和 portsAttributes
+devcontainer.json 的 forwardPorts 和 portsAttributes 只是告诉 VS Code：
+“容器里某个端口需要被转发到宿主机，方便你在本地访问。”
+
+它们不会也不能改变容器里服务的 原始监听端口。
+
+🔹 原理拆解
+- 服务监听端口：由你在应用或 Docker Compose 中配置决定，比如 Redis 默认监听 6379，Fastify 配置监听 3000。
+- Docker 映射：ports: "6381:6379" → 宿主机 6381 → 容器 6379。
+- Dev Container 转发：forwardPorts: [3000, 9229, 6381] → 容器端口直接转发到宿主机同号端口。
+👉 注意：VS Code 转发只能基于容器里已有的端口，它不会帮你“改”服务监听端口。
+
+⚡ 举例
+- 如果 Redis 在容器里监听 6379，你在 forwardPorts 写 6381，VS Code 会尝试转发容器的 6381，但容器里并没有这个端口 → 转发失败。
+- 如果你想让宿主机访问 localhost:6381，必须在 Docker Compose 里做 6381:6379 的映射。
+- 如果你只写 forwardPorts: [6379]，那么 VS Code 会把容器的 6379 转发到宿主机的 6379，但不会自动变成 6381。
+
+✅ 总结
+- forwardPorts ≠ 改端口号
+- 它只是转发容器里已有的端口到宿主机同号端口。
+- 要改变宿主机访问端口号，必须用 Docker Compose 的 ports 映射。
+

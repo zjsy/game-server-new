@@ -1,16 +1,6 @@
-import {Column, Entity, PrimaryColumn} from 'typeorm';
-
-@Entity('game_agent_relations')
-export class GameAgentRelations {
-    @PrimaryColumn()
-    agent_id: number;
-
-    @PrimaryColumn()
-    pid: number;
-
-    @Column()
-    up_level: number;
-
-    @Column()
-    level: number;
+export interface AgentRelations {
+  agent_id: number;
+  pid: number;
+  up_level: number;
+  level: number;
 }
