@@ -25,7 +25,7 @@ export class BaseRepository {
   ): Promise<T> {
     const { useWrite = false, conn } = options || {}
 
-    // 如果传入了连接，直接使用
+    // 如果传入了连接,直接使用
     if (conn) {
       const [rows] = await conn.query(sql, values)
       return rows as T
@@ -44,7 +44,7 @@ export class BaseRepository {
     values?: unknown[],
     conn?: PoolConnection
   ) {
-    // 如果传入了连接，直接使用
+    // 如果传入了连接,直接使用
     if (conn) {
       return conn.execute<ResultSetHeader>(sql, values)
     }
@@ -93,17 +93,17 @@ export class BaseRepository {
     const placeholders = fields.map(() => '?').join(', ')
     const values = fields.map(field => data[field as keyof T])
 
-    const sql = `INSERT INTO ${table} (${fields.join(', ')}) VALUES (${placeholders})`
+    const sql = `INSERT INTO ${table} (${fields.map(f => `\`${f}\``).join(', ')}) VALUES (${placeholders})`
 
     // 执行插入
     const [result] = await this.execute(sql, values, conn)
 
-    // 如果有自增ID，查询并返回完整记录
+    // 如果有自增ID,查询并返回完整记录
     if (result.insertId) {
       return result.insertId
     }
 
-    // 如果没有自增ID，返回null或者尝试根据插入的数据查询
+    // 如果没有自增ID,返回null或者尝试根据插入的数据查询
     return null
   }
 
@@ -112,7 +112,7 @@ export class BaseRepository {
    * @param table 表名
    * @param where 删除条件(必须提供, 避免误删全部)
    * @param conn 可选的数据库连接
-   * @returns 删除的行数(affectedRows)，若未删除返回0
+   * @returns 删除的行数(affectedRows),若未删除返回0
    */
   async delete<T>(
     table: string,
@@ -145,7 +145,7 @@ export class BaseRepository {
     conn?: PoolConnection
   ): Promise<T | Pick<T, K> | null> {
     const selectFields = fields && fields.length > 0
-      ? fields.map(f => String(f)).join(', ')
+      ? fields.map(f => `\`${String(f)}\``).join(', ')
       : '*'
 
     let sql = `SELECT ${selectFields} FROM ${table}`
@@ -181,7 +181,7 @@ export class BaseRepository {
   async get<T extends RowDataPacket, K extends keyof T = keyof T>(
     table: string,
     where?: Partial<Pick<T, keyof T>>,
-    fields?: K[],
+    fields?: readonly K[],
     options?: {
       orderBy?: string
       orderDirection?: 'ASC' | 'DESC'
@@ -190,7 +190,7 @@ export class BaseRepository {
     },
     conn?: PoolConnection
   ): Promise<Pick<T, K>[]> {
-    const selectFields = fields && fields.length > 0 ? fields.map(f => String(f)).join(', ') : '*'
+    const selectFields = fields && fields.length > 0 ? fields.map(f => `\`${String(f)}\``).join(', ') : '*'
     let sql = `SELECT ${selectFields} FROM ${table}`
     const values: unknown[] = []
 
@@ -240,7 +240,7 @@ export class BaseRepository {
 
     // 构建 SET 子句
     const setFields = Object.keys(data) as Array<keyof E>
-    const setClause = setFields.map(field => `${String(field)} = ?`).join(', ')
+    const setClause = setFields.map(field => `\`${String(field)}\` = ?`).join(', ')
     const setValues = setFields.map(field => data[field])
 
     let sql = `UPDATE ${table} SET ${setClause}`
@@ -264,7 +264,7 @@ export class BaseRepository {
     //   return { clause: '', values: [] }
     // }
     const whereFields = Object.keys(where) as Array<keyof T>
-    const whereClause = whereFields.map(field => `${String(field)} = ?`).join(' AND ')
+    const whereClause = whereFields.map(field => `\`${String(field)}\` = ?`).join(' AND ')
     const whereValues = whereFields.map(field => where[field])
     return { whereClause, whereValues }
   }

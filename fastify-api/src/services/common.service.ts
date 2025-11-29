@@ -16,8 +16,8 @@ export class TableService {
   private broadcastService?: GameBroadcastService // 可选依赖
 
   constructor (private fastify: FastifyInstance, broadcastService?: GameBroadcastService) {
-    this.tableRepository = new TableRepository(fastify)
-    this.gameRepository = new GameRepository(fastify)
+    this.tableRepository = this.fastify.repositories.table
+    this.gameRepository = this.fastify.repositories.game
     this.broadcastService = broadcastService
   }
 
@@ -58,12 +58,12 @@ export class TableService {
       'password',
     ])
     if (!table) {
-      throw new Error('table not found')
+      throw new BusinessError(ErrorCode.TABLE_NOT_EXIST, 'table not found')
     }
 
     // 2. 检查桌台状态
     if (table.status === 0) {
-      throw new Error('table is disabled')
+      throw new BusinessError(ErrorCode.TABLE_IS_DISABLED, 'table is disabled')
     }
 
     // 3. 验证密码 - 计算客户端传入密码的 MD5
@@ -74,7 +74,7 @@ export class TableService {
 
     // 比较计算出的 MD5 与数据库中存储的密码
     if (inputPasswordMd5 !== table.password) {
-      throw new Error('table password is incorrect')
+      throw new BusinessError(ErrorCode.LOGIN_VERIFY_ERROR, 'table password is incorrect')
     }
 
     // 3. 生成新的 sessionId
@@ -95,7 +95,7 @@ export class TableService {
       }
     )
 
-    // 5. 生成 refresh token (长期有效，用于刷新 access token)
+    // 5. 生成 refresh token (长期有效,用于刷新 access token)
     const refreshToken = this.fastify.jwt.sign(
       {
         tableNo: table.table_no,
@@ -122,7 +122,7 @@ export class TableService {
     await this.tableRepository.updateTable({ id: table.id }, { is_login: 1, login_ip: loginIp })
 
     // 构造返回数据
-    let roundInfo: null | Round = null
+    let roundInfo = null
     if (table.current_round_id) {
       roundInfo = await this.gameRepository.getRoundById(table.current_round_id, [
         'id',
@@ -139,16 +139,16 @@ export class TableService {
         'settle_time',
       ])
       if (roundInfo) {
-        // 这边有可能出现服务器挂逼或者手动关闭状态后，处于倒计时中的任务终止，导致局状态没有更新的时候，需要根据时间和现有的状态来修正状态
+        // 这边有可能出现服务器挂逼或者手动关闭状态后,处于倒计时中的任务终止,导致局状态没有更新的时候,需要根据时间和现有的状态来修正状态
         const endTime = roundInfo.end_time.getTime()
-        if (endTime - Date.now() <= 0 && roundInfo.status === RoundStatus.Betting) {
+        if (endTime <= Date.now() && roundInfo.status === RoundStatus.Betting) {
+          roundInfo.status = RoundStatus.Dealing
           await this.gameRepository.updateRoundById(roundInfo.id, { status: RoundStatus.Dealing })
         }
       }
     }
 
     const roundEndTime = roundInfo ? new Date(roundInfo.end_time).getTime() : 0
-
     // 更新或者存储table数据存redis,保证荷官登录时桌台数据是新的
     this.tableRepository.updateTableCache(table.id, {
       id: table.id,
@@ -164,16 +164,16 @@ export class TableService {
       limit_max: table.limit_max,
       video1: table.video1,
       video2: table.video2,
-      current_shoe: table.current_shoe ? table.current_shoe : '0',
-      current_round_id: roundInfo ? roundInfo.id : '0',
-      current_round_no: roundInfo ? roundInfo.round_no : '0',
+      current_shoe: table.current_shoe ? table.current_shoe : 0,
+      current_round_id: roundInfo ? roundInfo.id : 0,
+      current_round_no: roundInfo ? roundInfo.round_no : 0,
       goodroad: table.goodroad,
-      play_status: roundInfo ? roundInfo.status : '-1',
+      play_status: roundInfo ? roundInfo.status : -1,
       round_end_time: roundEndTime,
     })
 
-    // 初始化其他数据，如局信息缓存，局统计缓存等
-    // 确认redis局数据，没有就更新
+    // 初始化其他数据,如局信息缓存,局统计缓存等
+    // 确认redis局数据,没有就更新
     const isExitRoundCache = await this.gameRepository.exitRoundListCache(table.id)
     if (!isExitRoundCache) {
       // 获取结算后的局列表
@@ -181,7 +181,7 @@ export class TableService {
       const l = roundList.length
       if (l) {
         this.gameRepository.saveRoundListCache(table.id, roundList)
-        // 更新好路数据
+        // 更新好路数据,可以不更新,因为好路数据不是特别重要,影响也不大,而且数据库的好路数据应该不会丢失
         // if (table.game_type === GameType.Baccarat) {
         //   const resArr = []
         //   for (let i = l - 1; i > 0; i--) {
@@ -202,8 +202,8 @@ export class TableService {
       }
     }
     if (table.game_type === GameType.Roulette) {
-      this.gameRepository.initRoultterankingCache(table.id)
-      this.gameRepository.initRoultteStatsCache(table.id)
+      this.gameRepository.initRouletteRankingCache(table.id)
+      this.gameRepository.initRouletteStatsCache(table.id)
     }
     const subTime = roundEndTime - Date.now()
     // 6. 返回登录结果
@@ -235,7 +235,7 @@ export class TableService {
   async dealerLogin (tableId:number, dealerNo: string): Promise<DealerLoginResponse> {
     const dealer = await this.tableRepository.findDealerByNo(dealerNo, ['id', 'dealer_no', 'nickname', 'avatar', 'status', 'is_login'])
     if (!dealer || dealer.status === 0) {
-      throw new BusinessError(ErrorCode.USER_NOT_EXIST)
+      throw new BusinessError(ErrorCode.DEALER_NOT_EXIST)
     }
 
     const tableInfo = await this.tableRepository.findTableCache(tableId)
@@ -244,19 +244,18 @@ export class TableService {
     }
 
     if (dealer.is_login === 1) {
-      throw new BusinessError(ErrorCode.USER_IS_LOGGED)
+      throw new BusinessError(ErrorCode.DEALER_IS_LOGGED)
     }
     await this.tableRepository.updateDealer(dealer.id, { is_login: 1 })
 
     // 退出当前dealer
-    if (tableInfo.dealerInfo) {
-      const dealerInfo = JSON.parse(tableInfo.dealerInfo)
-      await this.tableRepository.updateDealer(dealerInfo.id, { is_login: 0 })
+    if (tableInfo.dealer) {
+      await this.tableRepository.updateDealer(tableInfo.dealer.id, { is_login: 0 })
     }
 
-    // 更新桌dealer，方便直接从数据库取数据
+    // 更新桌dealer,方便直接从数据库取数据
     await this.tableRepository.updateTableCache(tableId, {
-      dealerInfo: JSON.stringify({ id: dealer.id, nickname: dealer.nickname, avatar: dealer.avatar }),
+      dealer: { id: dealer.id, nickname: dealer.nickname, avatar: dealer.avatar },
     })
     this.tableRepository.updateTable({ id: tableId }, { is_login: 1, login_dealer: dealer.id })
     // 发送消息
@@ -281,14 +280,13 @@ export class TableService {
     // 直接修改数据库状态
     if (Number(tableInfo.maintain) !== status && status === 1) {
       this.tableRepository.updateTable({ id: tableId }, { maintain: 1, login_dealer: 0 })
-      this.tableRepository.updateTableCache(tableId, { maintain: '1', dealerInfo: '' })
-      if (tableInfo.dealerInfo) {
-        const dealerInfo = JSON.parse(tableInfo.dealerInfo)
-        this.tableRepository.updateDealer(dealerInfo.id, { is_login: 0 })
+      this.tableRepository.updateTableCache(tableId, { maintain: 1, dealer: null })
+      if (tableInfo.dealer) {
+        this.tableRepository.updateDealer(tableInfo.dealer.id, { is_login: 0 })
       }
     } else {
       this.tableRepository.updateTable({ id: tableId }, { status: 1, maintain: 0 })
-      this.tableRepository.updateTableCache(tableId, { maintain: '0' })
+      this.tableRepository.updateTableCache(tableId, { maintain: 0 })
     }
     this.broadcastService?.globalBroadcast(PushConst.ON_MAINTAIN, { tableId, maintain: Boolean(status) })
   }
@@ -393,7 +391,7 @@ export class TableService {
       }
     )
 
-    // 8. 删除旧的 refresh token，存储新的 refresh token (refresh token 轮换)
+    // 8. 删除旧的 refresh token,存储新的 refresh token (refresh token 轮换)
     const pipeline = this.fastify.redis.pipeline()
     pipeline.del(redisRefreshKey) // 删除旧的
     pipeline.set(redisRefreshKey, newRefreshToken, 'EX', 7 * 24 * 60 * 60) // 存储新的

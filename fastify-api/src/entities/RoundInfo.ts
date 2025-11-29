@@ -21,7 +21,7 @@ export interface RoundRow extends RowDataPacket, RoundRaw { }
 
 export interface Round extends Omit<RoundRaw, 'result' | 'details'> {
   result: number[]; // 解析后的数组
-  details: Record<string, unknown>; // 解析后的对象
+  details: Record<string, unknown> | number[]; // 解析后的对象,目前只有sicbo是 number[]
 }
 
 // 将 RoundRow 转换为 Round（解析 JSON 字段）

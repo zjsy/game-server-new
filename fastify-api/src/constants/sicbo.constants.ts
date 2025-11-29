@@ -1,4 +1,8 @@
-export enum SicboBetType {
+export type DiceValue = 1 | 2 | 3 | 4 | 5 | 6
+// 定义一个长度为 6 的元组
+export type sicBoDetails = [DiceValue, DiceValue, DiceValue]
+
+export enum SicBoBetType {
   // 大小单双1:1 遇围骰庄家通吃
   big = 1,
   small,
@@ -67,7 +71,7 @@ export enum SicboBetType {
   point12,
 }
 
-const SicboOdds: { [key: number]: number } = {
+const SicBoOdds: { [key: number]: number } = {
   1: 1,
   2: 1,
   3: 1,
@@ -118,9 +122,9 @@ const SicboOdds: { [key: number]: number } = {
   52: 6,
 }
 
-export function getSicboOdds (betType: SicboBetType, dices: []) {
+export function getSicBoOdds (betType: SicBoBetType, dices: sicBoDetails) {
   if (betType < 12 || betType > 17) {
-    return SicboOdds[betType]
+    return SicBoOdds[betType]
   } else {
     // 根据什么军判断倍率
     let odd = 0
@@ -150,18 +154,9 @@ export function getSicboOdds (betType: SicboBetType, dices: []) {
   }
 }
 
-export function getSicboOddsForLimit (betType: SicboBetType) {
-  if (betType < 12 || betType > 17) {
-    return SicboOdds[betType]
-  } else {
-    return 1
-  }
-}
-
 // 这里初始化一个map,提前计算好56种结果的命中 56种结果 A(6,1) + A(6,2) + C(6,3)
-// 顺序必须从小到大, 数组可以写原始的枚举类型，但是太长了，现在这样写很容易出错。。。。，
-// TODO:后续至少核对一遍
-const sicboResMap = new Map([
+// 顺序必须从小到大, 数组可以写原始的枚举类型,但是太长了,现在这样写很容易出错。。。。,
+const sicBoResMap = new Map([
   ['111', [5, 6, 12, 18]],
   ['222', [5, 7, 13, 19, 43]],
   ['333', [5, 8, 14, 20, 49]],
@@ -221,25 +216,30 @@ const sicboResMap = new Map([
   // [
   //     '456',
   //     [
-  //         SicboBetType.big,
-  //         SicboBetType.odd,
-  //         SicboBetType.threeForces4,
-  //         SicboBetType.threeForces5,
-  //         SicboBetType.threeForces6,
-  //         SicboBetType.zuhe45,
-  //         SicboBetType.zuhe46,
-  //         SicboBetType.zuhe56,
-  //         SicboBetType.point15,
+  //         SicBoBetType.big,
+  //         SicBoBetType.odd,
+  //         SicBoBetType.threeForces4,
+  //         SicBoBetType.threeForces5,
+  //         SicBoBetType.threeForces6,
+  //         SicBoBetType.zuhe45,
+  //         SicBoBetType.zuhe46,
+  //         SicBoBetType.zuhe56,
+  //         SicBoBetType.point15,
   //     ],
   // ],
 ])
 
-export function getSicboRes (key: string) {
-  return sicboResMap.get(key)
+export function parseSicBoResult (dices: sicBoDetails): number[] {
+  const key = dices.join('')
+  const result = sicBoResMap.get(key)
+  if (!result) {
+    throw new Error('SicBo result mapping not found')
+  }
+  return result
 }
 
 // 1-6点数
-export function getDiceCount (num: number, dices: number[]) {
+export function getDiceCount (num: number, dices: sicBoDetails) {
   return dices.reduce((count, item) => {
     if (num === item) {
       return count + 1
@@ -248,3 +248,34 @@ export function getDiceCount (num: number, dices: number[]) {
     }
   }, 0)
 }
+
+export function calWinLoseForSicBo (betDetails: Record<string, number>, hitRes:number[], sicboDetails: sicBoDetails) {
+  let winLose = 0
+  for (const betKey in betDetails) {
+    const betType = Number(betKey)
+    const betAmount = betDetails[betKey]
+    // 算输赢
+    if (hitRes.includes(betType)) {
+      winLose += betAmount * getSicBoOdds(betType, sicboDetails)
+    } else {
+      winLose -= betAmount
+    }
+  }
+  return winLose
+}
+
+export function calRollingForSicBo (totalBet:number, betDetails: Record<string, number>) {
+  const bigBet = betDetails[SicBoBetType.big] ? betDetails[SicBoBetType.big] : 0
+  const smallBet = betDetails[SicBoBetType.small] ? betDetails[SicBoBetType.small] : 0
+  const evenBet = betDetails[SicBoBetType.even] ? betDetails[SicBoBetType.even] : 0
+  const oddBet = betDetails[SicBoBetType.odd] ? betDetails[SicBoBetType.odd] : 0
+  return totalBet - bigBet - smallBet - evenBet - oddBet + Math.abs(bigBet - smallBet) + Math.abs(evenBet - oddBet)
+}
+
+// export function getSicBoOddsForLimit (betType: SicBoBetType) {
+//   if (betType < 12 || betType > 17) {
+//     return SicBoOdds[betType]
+//   } else {
+//     return 1
+//   }
+// }

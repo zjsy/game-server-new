@@ -128,13 +128,13 @@ export class TableTimerManager {
 
   /**
    * 清理桌台的所有定时器
-   * @param isAutoEnd 是否是自动结束（超时），如果是则不需要清理 timeout
+   * @param isAutoEnd 是否是自动结束（超时）,如果是则不需要清理 timeout
    */
   clearAllTimers (tableId: number, isAutoEnd = false): void {
     if (!isAutoEnd) {
       this.clearCountdownTimer(tableId)
     } else {
-      // 自动结束时，timeout 已经执行完毕，只需删除引用
+      // 自动结束时,timeout 已经执行完毕,只需删除引用
       const timers = this.timers.get(tableId)
       if (timers?.timeout) {
         delete timers.timeout
@@ -143,7 +143,7 @@ export class TableTimerManager {
 
     this.clearBroadcastTimer(tableId)
 
-    // 如果该桌台没有任何定时器了，删除整个条目
+    // 如果该桌台没有任何定时器了,删除整个条目
     const timers = this.timers.get(tableId)
     if (timers && !timers.timeout && !timers.interval) {
       this.timers.delete(tableId)

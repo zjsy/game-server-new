@@ -9,11 +9,12 @@ export const enum GameType {
   Baccarat,
   DragonTiger,
   Roulette,
-  Sicbo,
-  Niuniu,
-  TONGZI,
-  FASTSICBO,
-  SeDie = 7,
+  SicBo,
+  Bull,
+  FastSicBo,
+  DragonPhoenix,
+  SeDie,
+  Tongzi = 10
 }
 
 // 钱包类型
@@ -27,7 +28,7 @@ export const enum TableStatus {
   Close, // 关
   Open, // 开
   Shuffle, // 洗牌
-  Maintain, // 后面加的,黄家丽华现在没用到
+  Maintain, // 维护
 }
 
 export const enum RoundStatus {
@@ -54,3 +55,26 @@ export const enum TransactionsType {
   Resettle,
   Reverse,
 }
+
+export const ResettleOrderFields = [
+  'id',
+  'game_type',
+  'round_id',
+  'user_id',
+  'username',
+  'agent_id',
+  'user_type',
+  'table_no',
+  'table_id',
+  'currency',
+  'status',
+  'bet_time',
+  'bet_amount',
+  'bet',
+  'rolling',
+  'settle_result',
+  'comm',
+] as const
+
+// 导出类型,用于类型标注
+export type ResettleOrderField = typeof ResettleOrderFields[number]

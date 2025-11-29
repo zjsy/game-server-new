@@ -5,7 +5,7 @@ import { BaseResponse, LoginTableResponse } from "../../types/types";
 const baseUrl = import.meta.env.VITE_BASE_URL || "";
 export async function loginTableApi(data: { t: string; p: string }) {
   const response = await axios.post<BaseResponse<LoginTableResponse>>(
-    baseUrl + "/api/table/table-login",
+    baseUrl + "/api/table-login",
     data
   );
   return response.data;
@@ -18,12 +18,12 @@ export class BaseApiClient {
       baseURL: baseUrl,
       timeout: 10000,
       tokenStorage: data,
-      refreshTokenUrl: "/api/table/refresh-token",
+      refreshTokenUrl: "/api/refresh-token",
     };
     this.axiosClient = new AxiosClient(config);
   }
 
   loginDealerApi(data: { dealerNo: string }) {
-    return this.axiosClient.post("/api/table/dealer-login", data);
+    return this.axiosClient.post("/api/dealer-login", data);
   }
 }

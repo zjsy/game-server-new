@@ -1,4 +1,7 @@
-// 龙虎 1 龙  2 和 3虎 4龙单 5龙双 6龙红 7龙黑 8虎单  09虎双 10虎红 11虎黑
+export type DtDetails = {
+  d: number;
+  t: number;
+}
 export enum DTBetType {
   dragon = 1,
   tie,
@@ -13,41 +16,41 @@ export enum DTBetType {
   tigerBlack,
 }
 
-const DtOdds: { [key: number]: number } = {
-  1: 1,
-  2: 8,
-  3: 1,
-  4: 0.75,
-  5: 1.05,
-  6: 0.9,
-  7: 0.9,
-  8: 0.75,
-  9: 1.05,
-  10: 0.9,
-  11: 0.9,
+const DtOdds: Record<DTBetType, number> = {
+  [DTBetType.dragon]: 1,
+  [DTBetType.tie]: 8,
+  [DTBetType.tiger]: 1,
+  [DTBetType.dragonOdd]: 0.75,
+  [DTBetType.dragonEven]: 1.05,
+  [DTBetType.dragonRed]: 0.9,
+  [DTBetType.dragonBlack]: 0.9,
+  [DTBetType.tigerOdd]: 0.75,
+  [DTBetType.tigerEven]: 1.05,
+  [DTBetType.tigerRed]: 0.9,
+  [DTBetType.tigerBlack]: 0.9,
 }
 
 export function getDtOdds (betType: DTBetType) {
   return DtOdds[betType]
 }
 
-const DtLimitOdds: { [key: number]: number } = {
-  1: 1,
-  2: 8,
-  3: 1,
-  4: 1,
-  5: 1,
-  6: 1,
-  7: 1,
-  8: 1,
-  9: 1,
-  10: 1,
-  11: 1,
-}
+// const DtLimitOdds: { [key: number]: number } = {
+//   1: 1,
+//   2: 8,
+//   3: 1,
+//   4: 1,
+//   5: 1,
+//   6: 1,
+//   7: 1,
+//   8: 1,
+//   9: 1,
+//   10: 1,
+//   11: 1,
+// }
 
-export function getDtOddsForlimit (betType: DTBetType) {
-  return DtLimitOdds[betType]
-}
+// export function getDtOddsForLimit (betType: DTBetType) {
+//   return DtLimitOdds[betType]
+// }
 
 export function parseDtResult (details: { d: number; t: number }) {
   const dragon = details.d
@@ -83,4 +86,47 @@ export function parseDtResult (details: { d: number; t: number }) {
     resArr.push(10)
   }
   return resArr
+}
+
+export function calWinLoseForDt (betDetails: Record<string, number>, hitRes:number[]) {
+  let winLose = 0
+  for (const betKey in betDetails) {
+    const betType = Number(betKey)
+    const betAmount = betDetails[betKey]
+    // 算输赢
+    if (betType === DTBetType.dragon) {
+      if (hitRes.includes(DTBetType.dragon)) {
+        winLose += betAmount
+      } else if (hitRes.includes(DTBetType.tiger)) {
+        winLose -= betAmount
+      } else if (hitRes.includes(DTBetType.tie)) {
+        winLose -= betAmount * 0.5
+      }
+    } else if (betType === DTBetType.tiger) {
+      if (hitRes.includes(DTBetType.tiger)) {
+        winLose += betAmount
+      } else if (hitRes.includes(DTBetType.dragon)) {
+        winLose -= betAmount
+      } else if (hitRes.includes(DTBetType.tie)) {
+        winLose -= betAmount * 0.5
+      }
+    } else {
+      if (hitRes.includes(betType)) {
+        winLose += betAmount * getDtOdds(betType) + betAmount
+      } else {
+        winLose -= betAmount
+      }
+    }
+  }
+  return winLose
+}
+
+export function calRollingForDt (totalBet:number, betDetails: Record<string, number>, hitRes:number[]) {
+  const dragonBet = betDetails[DTBetType.dragon] ? betDetails[DTBetType.dragon] : 0
+  const tigerBet = betDetails[DTBetType.tiger] ? betDetails[DTBetType.tiger] : 0
+  if (hitRes.includes(DTBetType.tie)) {
+    return totalBet - dragonBet - tigerBet + 0.5 * Math.abs(dragonBet - tigerBet)
+  } else {
+    return totalBet - dragonBet - tigerBet + Math.abs(dragonBet - tigerBet)
+  }
 }

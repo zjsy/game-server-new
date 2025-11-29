@@ -66,7 +66,7 @@ export interface BetOrderRow extends RowDataPacket, BetOrderRaw { }
 export interface BetOrder extends Omit<BetOrderRaw, 'bet' | 'round_result' | 'round_details'> {
   bet: Record<string, number>; // 解析后的对象
   round_result: number[] | null; // 解析后的数组
-  round_details: Record<string, unknown> | null; // 解析后的对象
+  round_details: Record<string, unknown> | number[]; // 解析后的对象,目前只有sicbo是 number[]
 }
 
 // 将 BetOrderRow 转换为 BetOrder（解析 JSON 字段）

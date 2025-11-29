@@ -55,4 +55,5 @@ export interface RefreshTokenResponse {
 
 export type SettleResponse = {
   settledAt: Date;
+  goodRoad?: number;
 }

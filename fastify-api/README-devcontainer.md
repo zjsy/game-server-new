@@ -234,6 +234,18 @@ bind mount 100% 能检测到变化
 
 所以这个环境变量才是决定性因素。
 
+目前又发生一个新的问题,CHOKIDAR_USEPOLLING=true时候:
+```
+"dev:start": "fastify start -w --watch-files='dist/**/*.js' -l info -P -p 8100 dist/app.js",
+```
+会造成无论修改什么文件都会造成热更新
+```
+"dev:start": "fastify start -w --watch-dir=dist --ignore-watch='.*' -l info -P dist/app.js"
+```
+又会造成所有的修改都不会触发热更
+
+所以最终的方案是干脆使用tsx,更合适
+
 ## 关于forwardPorts 和 portsAttributes
 devcontainer.json 的 forwardPorts 和 portsAttributes 只是告诉 VS Code：
 “容器里某个端口需要被转发到宿主机，方便你在本地访问。”
@@ -255,4 +267,11 @@ devcontainer.json 的 forwardPorts 和 portsAttributes 只是告诉 VS Code：
 - forwardPorts ≠ 改端口号
 - 它只是转发容器里已有的端口到宿主机同号端口。
 - 要改变宿主机访问端口号，必须用 Docker Compose 的 ports 映射。
+
+## 关于containerEnv
+  "containerEnv": {
+    "HOST": "0.0.0.0",
+    "PORT": "3000"
+  },
+  devcontainer.json的env配置会覆盖docker-compose文件中的env配置,所以需要多个文件确认
 

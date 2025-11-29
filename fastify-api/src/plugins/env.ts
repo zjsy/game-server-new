@@ -140,7 +140,7 @@ export interface EnvironmentVariables {
   BULLMQ_REDIS_DB: number;
 }
 
-// 扩展 Fastify 类型，使环境变量可通过 fastify.config 访问
+// 扩展 Fastify 类型,使环境变量可通过 fastify.config 访问
 declare module 'fastify' {
   interface FastifyInstance {
     config: EnvironmentVariables;

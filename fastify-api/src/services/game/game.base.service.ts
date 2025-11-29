@@ -1,20 +1,21 @@
 import { FastifyInstance } from 'fastify'
-import { GameRepository } from '../repositories/game.repository.js'
-import { GameBroadcastService } from '../infrastructure/centrifugo.service.js'
-import { GameType, OrderStatus, RoundStatus, UserType } from '../constants/game.constants.js'
-import { TableRepository } from '../repositories/table.repository.js'
-import { PushConst } from '../constants/push.constants.js'
-import { UserRepository } from '../repositories/user.repository.js'
-import { QueueManager } from './queue.service.js'
-import { BetOrder, BetOrderRaw, BetTempOrder } from '../entities/BetOrder.js'
-import { Round } from '../entities/RoundInfo.js'
-import { SettleRoundData } from '../types/game.types.js'
+import { RoundStatus, GameType, OrderStatus, UserType, ResettleOrderFields } from '../../constants/game.constants.js'
+import { PushConst } from '../../constants/push.constants.js'
+import { BetOrder, BetTempOrder } from '../../entities/BetOrder.js'
+import { Round } from '../../entities/RoundInfo.js'
+import { GameBroadcastService } from '../../infrastructure/centrifugo.service.js'
+import { GameRepository } from '../../repositories/game.repository.js'
+import { TableRepository } from '../../repositories/table.repository.js'
+import { UserRepository } from '../../repositories/user.repository.js'
+import { SettleRoundData } from '../../types/game.types.js'
+import { QueueManager } from '../queue.service.js'
+import { BusinessError, ErrorCode } from '../../utils/http.utils.js'
 
 export class GameBaseService {
   protected tableRepository: TableRepository
   protected userRepository: UserRepository
   protected gameRepository: GameRepository
-  protected queueService?: QueueManager // 可选依赖
+  protected queueService: QueueManager
   protected broadcastService?: GameBroadcastService // 可选依赖
   constructor (protected fastify: FastifyInstance) {
     this.tableRepository = this.fastify.repositories.table
@@ -24,24 +25,50 @@ export class GameBaseService {
     this.broadcastService = this.fastify.gameBroadcast
   }
 
-  async cancelOrders (oldRoundStatus: RoundStatus, roundInfo: Round) {
+  // 停止下注.所有游戏完全一样的
+  async stopBet (tableId: number, roundId:number): Promise<void> {
+    const tableCache = await this.tableRepository.findTableCache(tableId)
+    if (!tableCache) {
+      throw new BusinessError(ErrorCode.TABLE_NOT_EXIST)
+    }
+    // 判断是否还是当前局,并且状态还在倒计时状态
+    if (tableCache.current_round_id === roundId && tableCache.play_status === RoundStatus.Betting) {
+      // 手动停止下注,清理所有定时器
+      this.queueService.broadcast.stopRepeat(tableId)
+      const endTime = new Date()
+      // 局状态和结束时间改变
+      this.gameRepository.updateRoundById(roundId, { status: RoundStatus.Dealing, end_time: endTime })
+      // 更新缓存
+      this.tableRepository.updateTableCache(tableId, { play_status: RoundStatus.Dealing, round_end_time: endTime.getTime() })
+      // 广播信息
+      const { statsC: betStatsC, statsN: betStatsN } = await this.gameRepository.getBetStatsCache(tableId)
+      this.broadcastService?.globalBroadcast(PushConst.END_COUNTDOWN, {
+        tableId,
+        roundId,
+        betStatsC,
+        betStatsN,
+      })
+    }
+  }
+
+  protected async cancelOrders (oldRoundStatus: RoundStatus, roundInfo: Pick<Round, 'status' | 'id' | 'table_no' | 'game_type' | 'table_id' | 'round_sn'>) {
     if (oldRoundStatus === RoundStatus.Dealing) {
       this.gameRepository.insertRoundCache(roundInfo.table_id, roundInfo.game_type, {
         id: roundInfo.id,
         status: roundInfo.status,
       })
       this.tableRepository.updateTableCache(roundInfo.table_id, { play_status: RoundStatus.Cancel })
-      // 清除redis当前局所有人下注信息
+      // 清除缓存中当前局所有人下注信息
       this.userRepository.delUserRoundBetStateCache(roundInfo.id)
       this.broadcastService?.globalBroadcast(PushConst.CANCEL_RESULT, {
         tableId: roundInfo.table_id,
         roundId: roundInfo.id,
       })
     } else {
-      // !判断当前局是否在前端显示范围之内，是的话需要通知前端
+      // !判断当前局是否在前端显示范围之内,是的话需要通知前端
       const cRoundList = await this.gameRepository.getRoundListCache(roundInfo.table_id)
       const l = cRoundList.length
-      // 从后开始循环，如果找到了就修改一下
+      // 从后开始循环,如果找到了就修改一下
       for (let i = l - 1; i > -1; i--) {
         const cRound = JSON.parse(cRoundList[i])
         if (cRound.id === roundInfo.id) {
@@ -50,29 +77,29 @@ export class GameBaseService {
             tableId: roundInfo.table_id,
             roundId: roundInfo.id,
           })
-          // 修改redis种这局的信息
+          // 更新缓存中这局的信息
           this.gameRepository.updateRoundCache(roundInfo.table_id, i, {
             id: roundInfo.id,
-            result: roundInfo.result,
-            details: roundInfo.details,
+            result: [],
+            details: {},
             status: roundInfo.status,
           })
           break
         }
       }
       if (roundInfo.game_type === GameType.Roulette) {
-        // ?轮盘重新统计所有
-        this.gameRepository.initRoultteStatsCache(roundInfo.table_id, true)
-        this.gameRepository.initRoultterankingCache(roundInfo.table_id, true)
+        // !轮盘重新统计所有
+        this.gameRepository.initRouletteStatsCache(roundInfo.table_id, true)
+        this.gameRepository.initRouletteRankingCache(roundInfo.table_id, true)
       }
     }
-    // 如果是在开牌中取消，直接改了结果就推送前端消息
+    // 如果是在开牌中取消,直接改了结果就推送前端消息
     if (oldRoundStatus === RoundStatus.Dealing) {
       const tempBetOrders = await this.gameRepository.getTempOrderListByRoundId(roundInfo.id)
       for (const tempOrder of tempBetOrders) {
-        // 结算后的输赢之和，取反(负)，就是要返回的金额
-        const reverMoney = tempOrder.bet_amount
-        const order: Partial<BetOrder> = {
+        // 结算后的输赢之和,取反(负),就是要返回的金额
+        const reverseMoney = tempOrder.bet_amount
+        const order = {
           lobby_no: tempOrder.lobby_no,
           table_no: tempOrder.table_no,
           dealer: tempOrder.dealer,
@@ -92,43 +119,31 @@ export class GameBaseService {
           bet_ip: tempOrder.bet_ip,
           user_type: tempOrder.user_type,
           status: OrderStatus.Cancel,
-          settle_time: roundInfo.settle_time,
+          settle_time: new Date(),
         }
-        const orderRaw = { ...order, bet: JSON.stringify(tempOrder.bet) } as Partial<BetOrderRaw>
+        const orderRaw = { ...order, bet: JSON.stringify(tempOrder.bet) }
         const insertId = await this.gameRepository.insertBetOrder(orderRaw)
-        order.id = insertId
-        this.gameRepository.deleteTempOrderListByRoundId(tempOrder.id)
-        this.queueService?.settlement?.schedule('cancel', order as BetOrder, roundInfo.round_sn, reverMoney)
+        const orderData = { ...order, id: insertId }
+        this.gameRepository.deleteTempOrderById(tempOrder.id)
+        this.queueService.settlement.schedule('cancel', orderData, roundInfo.round_sn, reverseMoney)
       }
     } else {
-      const betOrders = await this.gameRepository.getOrderListByRoundId(roundInfo.id, [
-        'id',
-        'bet_amount',
-        'settle_result',
-        'game_type',
-        'round_id',
-        'status',
-        'user_id',
-        'agent_id',
-        'username',
-        'table_id',
-        'currency',
-        'bet_time',
-        'rolling',
-        'user_type',
-        'comm',
-      ])
+      const betOrders = await this.gameRepository.getOrderListByRoundId(roundInfo.id, ResettleOrderFields)
       for (const order of betOrders) {
-        // 结算后的输赢之和，取反(负)，就是要返回的金额
+        // 结算后的输赢之和,取反(负),就是要返回的金额
         const reverseMoney = -order.settle_result
-
-        this.gameRepository.updateBetOrderById(order.id, {
+        const updateFields = {
           rolling: 0,
           settle_result: 0,
           status: OrderStatus.Cancel,
-          settle_time: roundInfo.settle_time
-        })
-        this.queueService?.settlement?.schedule('cancel', order as BetOrder, roundInfo.round_sn, reverseMoney)
+          settle_time: new Date(),
+        }
+        this.gameRepository.updateBetOrderById(order.id, updateFields)
+        const cancelSettledData = {
+          ...order,
+          ...updateFields
+        }
+        this.queueService.settlement.schedule('cancel', cancelSettledData, roundInfo.round_sn, reverseMoney)
         if (order.user_type === UserType.Player) {
           // 判断是否是今天
           if (order.bet_time.getTime() > new Date(new Date().toLocaleDateString()).getTime()) {
@@ -150,7 +165,7 @@ export class GameBaseService {
   }
 
   protected async saveOrderData (tempOrder: BetTempOrder, settleRoundData: SettleRoundData<any>, rolling:number, comm:number, winLose:number) {
-    const order: Partial<BetOrder> = {
+    const order: Omit<BetOrder, 'id'> = {
       lobby_no: tempOrder.lobby_no,
       table_no: tempOrder.table_no,
       user_id: tempOrder.user_id,
@@ -177,10 +192,10 @@ export class GameBaseService {
       status: OrderStatus.Settled,
       settle_time: new Date(),
     }
-    const orderRaw = { ...order, bet: JSON.stringify(tempOrder.bet), round_details: JSON.stringify(settleRoundData.details), round_result: JSON.stringify(settleRoundData.result) } as Partial<BetOrderRaw>
+    const orderRaw = { ...order, bet: JSON.stringify(tempOrder.bet), round_details: JSON.stringify(settleRoundData.details), round_result: JSON.stringify(settleRoundData.result) }
     const insertId = await this.gameRepository.insertBetOrder(orderRaw)
-    order.id = insertId
-    await this.gameRepository.deleteTempOrderListByRoundId(tempOrder.id)
+
+    await this.gameRepository.deleteTempOrderById(tempOrder.id)
     if (order.user_type === UserType.Player) {
       // 占成和佣金计算
       await this.userRepository.updateUserBetStats(
@@ -194,7 +209,7 @@ export class GameBaseService {
         }
       )
     }
-    return order
+    return { ...order, id: insertId }
   }
 
   protected async updateBetStatsResettle (userId:number, winLose:number, rolling:number, betTime:Date) {

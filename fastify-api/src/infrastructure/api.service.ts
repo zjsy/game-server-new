@@ -18,7 +18,7 @@ export enum ThirdApiErrorCode {
   USER_LIMIT_CROSS = 105, // '该用户限红越界',
   // 数据验证错误
   DATA_SIGN_ERR = 103,
-  // 同一个交易码如果已经被第三方系统处理时，好是返回正确处理，和余额
+  // 同一个交易码如果已经被第三方系统处理时,好是返回正确处理,和余额
   DUPLICATE_TXD = 104,
   LOGIN_EXPIRED = 105,
   CURRENCY_ERR = 106,
@@ -113,11 +113,11 @@ export class ApiService {
 
   /**
    * 获取api地址
-   * TODO：每次从redis，性能会稍微差一点，可以考虑直接放到内存中，但是这样的话(修改了之后处理很麻烦)
+   * !每次从redis,性能会稍微差一点,可以考虑直接放到内存中,但是这样的话(修改了之后处理很麻烦)
    * @param agentSn
    */
   private async getApi (agentSn: string): Promise<string> {
-    // 先从redis读，没有再从mysql读,
+    // 先从redis读,没有再从mysql读,
     const api = await this.redis.get(`cache:agent:${agentSn}:api`)
     if (api) {
       return api
@@ -133,13 +133,13 @@ export class ApiService {
         await this.redis.set(`cache:agent:${agentSn}:api`, agent.api)
         return apiUrl
       } else {
-        throw new Error('api配置不存在:mysql')
+        throw new Error('api config not found in mysql')
       }
     }
   }
 
   /**
-   * 使用代理的签名实现加密，代理的签名如果改变，一定要清理相应的redis缓存,一般不改变
+   * 使用代理的签名实现加密,代理的签名如果改变,一定要清理相应的redis缓存,一般不改变
    * @param data
    */
   private encrypt (data: unknown): { t: number; s: string } {

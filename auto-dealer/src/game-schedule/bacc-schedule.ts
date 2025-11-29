@@ -1,12 +1,12 @@
 import { BaccApiService } from "../const/centrifugo/bacc.api.service";
 import { RoundStatus } from "../const/GameConst";
-import { LoginTableResponse, TableInfo } from "../types/types";
+import { TableInfo } from "../types/types";
 import {
   BaccCardPositionEnum,
   generateBaccRoundResult,
 } from "../utils/BaccUtils";
 
-type Task = {
+export type Task = {
   name: string;
   fn: (input: any) => Promise<any>;
   delay: number;
@@ -36,6 +36,7 @@ export class BaccTaskPipeline implements TaskPipeline {
   }
 
   async runPipeline() {
+    this.running;
     let input: any = null;
     while (this.running) {
       for (const task of this.tasks) {
@@ -46,7 +47,7 @@ export class BaccTaskPipeline implements TaskPipeline {
     }
   }
 
-  async start(data: any) {
+  async start(data: TableInfo) {
     this.tableInfo = data;
     this.tasks = [
       { name: "startGame", fn: this.startGame, delay: 3000 },
@@ -57,41 +58,54 @@ export class BaccTaskPipeline implements TaskPipeline {
         delay: this.tableInfo.countdown * 1000 + 5000,
       },
     ];
-    this.running = true;
-    const startIndex = this.selectEntryIndex(data);
-    let input = data;
-    for (let i = startIndex; i < this.tasks.length; i++) {
-      const task = this.tasks[i];
-      await new Promise((resolve) => setTimeout(resolve, task.delay));
-      if (!this.running) break; // 延迟后再次检查
-      input = await task.fn(input);
+    // 手动判断更加可控
+    if (data.playStatus === RoundStatus.Betting) {
+      this.countdown(data.currentCountdown);
+      await new Promise((resolve) =>
+        setTimeout(resolve, data.currentCountdown * 1000 + 3000)
+      );
+      await this.settlement(null);
+    } else if (data.playStatus === RoundStatus.Dealing) {
+      await new Promise((resolve) => setTimeout(resolve, 3000));
+      await this.settlement(null);
+    } else if (data.playStatus === -1) {
+      await this.changeShoes();
     }
-    if (this.running) this.runPipeline();
+    // const startIndex = this.selectEntryIndex(data);
+    // let input = data;
+    // for (let i = startIndex; i < this.tasks.length; i++) {
+    //   const task = this.tasks[i];
+    //   await new Promise((resolve) => setTimeout(resolve, task.delay));
+    //   if (!this.running) break; // 延迟后再次检查
+    //   input = await task.fn(input);
+    // }
+    this.runPipeline();
   }
 
-  selectEntryIndex(data: LoginTableResponse): number {
-    if (data.playStatus === RoundStatus.Betting) {
-      return 1; // 从发牌开始
-    } else if (data.playStatus === RoundStatus.Dealing) {
-      return 1; // 从结算开始
-    } else if (data.playStatus === -1) {
-      this.changeShoes();
-      return 0;
-    }
-    return 0;
-  }
+  // private selectEntryIndex(data: TableInfo): number {
+  //   if (data.playStatus === RoundStatus.Betting) {
+  //     return 1; // 从发牌开始
+  //   } else if (data.playStatus === RoundStatus.Dealing) {
+  //     return 1; // 从结算开始
+  //   } else if (data.playStatus === -1) {
+  //     this.changeShoes();
+  //     return 0;
+  //   }
+  //   return 0;
+  // }
 
   stop() {
     console.warn("Bacc Task Pipeline Stopped");
     this.running = false;
   }
 
-  startGame = async (_input: any): Promise<any> => {
+  private startGame = async (_input: any): Promise<any> => {
     console.log("Game Start", new Date(), this.tableInfo);
     const res = await this.baccService.baccStartGame();
     if (res.data.code !== 0) {
       throw new Error(`Start Game Failed: ${res.data.msg || "Unknown error"}`);
     }
+    this.countdown(this.tableInfo!.countdown);
     const data = res.data.data;
     console.log("Start Game Response:", data);
     this.tableInfo.currentRoundId = data.id;
@@ -101,7 +115,21 @@ export class BaccTaskPipeline implements TaskPipeline {
     return data;
   };
 
-  settlement = async (_input: any) => {
+  private countdown(seconds: number) {
+    console.log("Countdown started:", seconds);
+    let remaining = seconds;
+    const timer = setInterval(() => {
+      console.log(remaining);
+      remaining--;
+      this.tableInfo.currentCountdown = remaining;
+      if (remaining < 0) {
+        clearInterval(timer);
+        console.log("倒计时结束！");
+      }
+    }, 1000);
+  }
+
+  private settlement = async (_input: any) => {
     this.tableInfo.playStatus = RoundStatus.Dealing;
     console.log("Cards Dealing", new Date(), this.tableInfo);
     const { details } = generateBaccRoundResult();
@@ -140,13 +168,13 @@ export class BaccTaskPipeline implements TaskPipeline {
       throw new Error(`Settlement Failed: ${res.data.msg || "Unknown error"}`);
     }
     this.tableInfo.playStatus = RoundStatus.Over;
-    if (this.tableInfo.currentRoundId >= 99) { 
+    if (this.tableInfo.roundNo >= 99) {
       this.changeShoes();
     }
     return res.data;
   };
 
-  changeShoes = async () => {
+  private changeShoes = async () => {
     console.log("Shoes Changed", this.tableInfo);
     const res = await this.baccService.baccNewShoes();
     const data = res.data.data;

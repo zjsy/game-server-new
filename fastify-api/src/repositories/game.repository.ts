@@ -5,8 +5,11 @@ import { isRed, rouStats } from '../constants/roulette.constants.js'
 import { BetTempOrder, BetTempOrderRow, BetOrder, BetOrderRow, mapTempBetOrderRow, mapBetOrderRow, BetOrderRaw } from '../entities/BetOrder.js'
 import { GameConfigRow } from '../entities/GameConfigs.js'
 import { mapRoundRow, Round, RoundRow } from '../entities/RoundInfo.js'
-import { ConfigCache } from '../types/cache.types.js'
 
+type ConfigCache = {
+  bakVideoUrl: string;
+  resourceUrl: string;
+}
 type RoundCacheData<T = unknown> = { id: number; result?: number[], details?: T, status: number }
 export class GameRepository extends BaseRepository {
   constructor (protected fastify: FastifyInstance) {
@@ -38,13 +41,13 @@ export class GameRepository extends BaseRepository {
     return tempOrderList.map(mapTempBetOrderRow)
   }
 
-  async deleteTempOrderListByRoundId (roundId: number) {
-    return await this.delete('game_bet_temp_orders', { round_id: roundId })
+  async deleteTempOrderById (tempId: number) {
+    return await this.delete('game_bet_temp_orders', { id: tempId })
   }
 
   async getOrderListByRoundId<F extends keyof BetOrder>(
     roundId: number,
-    fields?: F[]
+    fields?: readonly F[]
   ): Promise<Pick<BetOrder, F>[]> {
     const betOrderRaw = await this.get<BetOrderRow, F>('game_bet_orders', { round_id: roundId }, fields)
     return betOrderRaw.map(mapBetOrderRow)
@@ -53,12 +56,12 @@ export class GameRepository extends BaseRepository {
   /**
      * 插入注单信息
      * @param roundId 局 ID
-     * @param fields 要查询的字段数组，默认查询所有字段
+     * @param fields 要查询的字段数组,默认查询所有字段
      * @returns 局信息或 null
      */
   async insertBetOrder (data: Partial<BetOrderRaw>): Promise<number> {
     const insertedId = await this.insert<BetOrderRaw>('game_bet_orders', data)
-    // bet_order表有自增id，一定会返回数字
+    // bet_order表有自增id,一定会返回数字
     return insertedId!
   }
 
@@ -70,34 +73,30 @@ export class GameRepository extends BaseRepository {
   /**
      * 根据 id 查询局信息
      * @param roundId 局 ID
-     * @param fields 要查询的字段数组，默认查询所有字段
+     * @param fields 要查询的字段数组,默认查询所有字段
      * @returns 局信息或 null
      */
-  async getRoundById (roundId: number, fields?: (keyof Round)[]) {
-    const selectFields = fields && fields.length > 0 ? fields.join(', ') : '*'
-    const rows = await this.query<RoundRow[]>(
-        `SELECT ${selectFields} FROM game_round_infos WHERE id = ? LIMIT 1`,
-        [roundId]
-    )
-    return mapRoundRow(rows[0]) || null
+  async getRoundById<F extends keyof Round> (roundId: number, fields?: F []) {
+    const roundRow = await this.find<RoundRow, F>('game_round_infos', { id: roundId }, fields)
+    return roundRow ? mapRoundRow(roundRow) : null
   }
 
   /**
      * 插入局信息
      * @param roundId 局 ID
-     * @param fields 要查询的字段数组，默认查询所有字段
+     * @param fields 要查询的字段数组,默认查询所有字段
      * @returns 局信息或 null
      */
   async insertRound (data: Partial<Round>): Promise<number> {
     const rows = await this.insert<Round>('game_round_infos', data)
-    // round表有自增id，一定会返回数字
+    // round表有自增id,一定会返回数字
     return rows!
   }
 
   /**
      * 根据 id 查询局信息
      * @param roundId 局 ID
-     * @param fields 要查询的字段数组，默认查询所有字段
+     * @param fields 要查询的字段数组,默认查询所有字段
      * @returns 局信息或 null
      */
   async updateRoundById (roundId: number, data: Partial<Round>): Promise<number> {
@@ -198,7 +197,7 @@ export class GameRepository extends BaseRepository {
   }
 
   /**
-   * 累加 在redis中的某个下注统计(按美金，外部换算汇率)
+   * 累加 在redis中的某个下注统计(按美金,外部换算汇率)
    */
   async setBetStatsCache (tableId: number, betTag: string, value: number): Promise<void> {
     // 不换算汇率直接相加可以换成hincrby
@@ -207,7 +206,7 @@ export class GameRepository extends BaseRepository {
   }
 
   /**
-   * 获取某桌下注金额统计(按美金，外部换算汇率)
+   * 获取某桌下注金额统计(按美金,外部换算汇率)
    * @param tableId 桌唯一标记
   */
   async getBetStatsCCache (tableId: number): Promise<Record<string, string>> {
@@ -215,7 +214,7 @@ export class GameRepository extends BaseRepository {
   }
 
   /**
- * 获取某桌下注次数统计(按美金，外部换算汇率)
+ * 获取某桌下注次数统计(按美金,外部换算汇率)
  * @param tableId 桌唯一标记
  */
   async getBetStatsNCache (tableId: number): Promise<Record<string, string>> {
@@ -266,7 +265,7 @@ export class GameRepository extends BaseRepository {
  * @param tableId
  * @param reset
  */
-  async initRoultteStatsCache (tableId: number | string, reset = false) {
+  async initRouletteStatsCache (tableId: number | string, reset = false) {
     if (reset) {
       await this.redis.del(`sys:roule_stats_t:${tableId}`)
     }
@@ -339,7 +338,7 @@ export class GameRepository extends BaseRepository {
       odd: Number(stats0.odd),
       even: Number(stats0.even),
     }
-    // 在登陆桌子的时候必然会创建统计，所以这里保证有数据
+    // 在登陆桌子的时候必然会创建统计,所以这里保证有数据
     if (rouLen >= 100) {
       // 获取第一个数据
       const firstRoundString = await this.redis.lrange(`sys:round_t:${tableId}`, 0, 1)
@@ -383,7 +382,7 @@ export class GameRepository extends BaseRepository {
     // };
   }
 
-  async initRoultterankingCache (tableId: number | string, reset = false) {
+  async initRouletteRankingCache (tableId: number | string, reset = false) {
     const isExit = await this.redis.exists(`sys:roule_rank_t:${tableId}`)
     if (!isExit || reset) {
       // 先构造全部是0的
@@ -412,7 +411,22 @@ export class GameRepository extends BaseRepository {
     }
   }
 
-  async updateRouletteRankingCache (tableId: number | string, curNum: number) {
+  async updateRouletteRankingCache (tableId: number, curNum: number) {
+    const rouLen = await this.redis.llen(`sys:round_t:${tableId}`)
+    if (rouLen >= 100) {
+      // 获取第一个数据
+      const firstRoundString = await this.redis.lrange(`sys:round_t:${tableId}`, 0, 1)
+      const round = JSON.parse(firstRoundString[0])
+      if (round.status !== RoundStatus.Cancel) {
+        const firstRoundNum = round.details.n
+        const pipe = this.redis.pipeline()
+        pipe.zincrby(`sys:roule_rank_t:${tableId}`, -1, firstRoundNum)
+        pipe.zincrby(`sys:roule_rank_t:${tableId}`, 1, curNum.toString())
+        pipe.exec()
+      }
+    } else {
+      this.redis.zincrby(`sys:roule_rank_t:${tableId}`, 1, curNum.toString())
+    }
   }
 
   // async setGoodRoadCache (tableId: number | string, gameRes: any[]) {

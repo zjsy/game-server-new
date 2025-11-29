@@ -6,6 +6,7 @@
       <div>Round No: {{ tableInfo.roundNo }}</div>
       <div>Countdown: {{ tableInfo.countdown }}</div>
       <div>Play Status: {{ tableInfo.playStatus }}</div>
+      <div>Current Countdown: {{ tableInfo.currentCountdown }}</div>
     </div>
     <button type="button" @click="start">start</button>
     <button type="button" @click="stop">stop</button>
@@ -20,15 +21,40 @@ import { BaccTaskPipeline, TaskPipeline } from '../game-schedule/bacc-schedule'
 import { GameType } from '../const/GameConst';
 import { BaccApiService } from '../const/centrifugo/bacc.api.service';
 import { loginTableApi } from '../const/centrifugo/api.service';
+import { DtApiService } from '../const/centrifugo/dt.api.service';
+import { DtTaskPipeline } from '../game-schedule/dt-schedule';
+import { SicboApiService } from '../const/centrifugo/sicbo.api.service';
+import { SicboTaskPipeline } from '../game-schedule/sicbo-schedule';
+import { RouletteApiService } from '../const/centrifugo/roulette.api.service';
+import { RouletteTaskPipeline } from '../game-schedule/roulette-schedule';
+import { FastSicboApiService } from '../const/centrifugo/fast-sicbo.api.service';
+import { FastSicboTaskPipeline } from '../game-schedule/fast-sicbo-schedule';
+import { DpApiService } from '../const/centrifugo/dp.api.service';
+import { DpTaskPipeline } from '../game-schedule/dp-schedule';
+import { SeDieApiService } from '../const/centrifugo/sedie.api.service';
+import { SedieTaskPipeline } from '../game-schedule/sedie-schedule';
+import { BullApiService } from '../const/centrifugo/bull.api.service';
+import { BullTaskPipeline } from '../game-schedule/bull-schedule';
 
 const { tableNo, dealerNo, runStatus } = defineProps<{
   tableNo: string
   dealerNo: string
   runStatus: boolean
 }>()
-
+const tableInfo = reactive({
+  tableNo: '',
+  countdown: 0,
+  roundNo: 0,
+  type: 0,
+  gameType: 0,
+  playStatus: 0,
+  currentShoe: 0,
+  currentRoundId: 0,
+  currentCountdown: 0,
+});
 watch(() => tableNo, (newVal) => {
   console.log('tableNo changed:', newVal)
+  tableInfo.tableNo = newVal;
 }, { immediate: true })
 
 watch(() => runStatus, (newVal) => {
@@ -40,16 +66,7 @@ watch(() => runStatus, (newVal) => {
   }
 })
 
-const tableInfo = reactive({
-  tableNo: '',
-  countdown: 0,
-  roundNo: 0,
-  type: 0,
-  gameType: 0,
-  playStatus: 0,
-  currentShoe: 0,
-  currentRoundId: 0,
-});
+
 
 let pipeline: TaskPipeline | undefined = undefined;
 function start() {
@@ -75,6 +92,8 @@ async function loginTable() {
   tableInfo.playStatus = data.playStatus;
   tableInfo.currentShoe = data.current_shoe;
   tableInfo.currentRoundId = data.current_round_id;
+  const diff = data.roundStopTime - Date.now();
+  tableInfo.currentCountdown = diff > 0 ? diff : 0;
   const gameType = data.game_type;
   if (gameType === GameType.BACCARAT) {
     const apiService = new BaccApiService({
@@ -82,6 +101,56 @@ async function loginTable() {
       refreshToken: data.refreshToken,
     });
     pipeline = new BaccTaskPipeline(apiService);
+    pipeline.start(tableInfo);
+  } else if (gameType === GameType.DRAGONTIGER) {
+    const apiService = new DtApiService({
+      token: data.token,
+      refreshToken: data.refreshToken,
+    });
+    pipeline = new DtTaskPipeline(apiService);
+    pipeline.start(tableInfo);
+  } else if (gameType === GameType.Sicbo) {
+    const apiService = new SicboApiService({
+      token: data.token,
+      refreshToken: data.refreshToken,
+    });
+    pipeline = new SicboTaskPipeline(apiService);
+    pipeline.start(tableInfo);
+  } else if (gameType === GameType.Roulette) {
+    const apiService = new RouletteApiService({
+      token: data.token,
+      refreshToken: data.refreshToken,
+    });
+    pipeline = new RouletteTaskPipeline(apiService);
+    pipeline.start(tableInfo);
+  } else if (gameType === GameType.BullFight) {
+    const apiService = new BullApiService({
+      token: data.token,
+      refreshToken: data.refreshToken,
+    });
+    pipeline = new BullTaskPipeline(apiService);
+    pipeline.start(tableInfo);
+  }
+  else if (gameType === GameType.FASTSICBO) {
+    const apiService = new FastSicboApiService({
+      token: data.token,
+      refreshToken: data.refreshToken,
+    });
+    pipeline = new FastSicboTaskPipeline(apiService);
+    pipeline.start(tableInfo);
+  } else if (gameType === GameType.DragonPhoenix) {
+    const apiService = new DpApiService({
+      token: data.token,
+      refreshToken: data.refreshToken,
+    });
+    pipeline = new DpTaskPipeline(apiService);
+    pipeline.start(tableInfo);
+  } else if (gameType === GameType.SEDIE) {
+    const apiService = new SeDieApiService({
+      token: data.token,
+      refreshToken: data.refreshToken,
+    });
+    pipeline = new SedieTaskPipeline(apiService);
     pipeline.start(tableInfo);
   }
 

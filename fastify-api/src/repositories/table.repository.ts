@@ -1,6 +1,6 @@
 import { Dealer, DealerRow } from '../entities/Dealer.js'
-import { Table, TableRow } from '../entities/TableInfo.js'
-import { TableCache } from '../types/cache.types.js'
+import { mapToTableCache, Table, TableCache, TableRow } from '../entities/TableInfo.js'
+import { toRedisHash } from '../utils/json.parse.utils.js'
 import { BaseRepository } from './base.repository.js'
 import { FastifyInstance } from 'fastify'
 
@@ -12,11 +12,15 @@ export class TableRepository extends BaseRepository {
   /**
    * 根据 table_no 查询桌台信息
    * @param tableNo 桌台编号
-   * @param fields 要查询的字段数组，默认查询所有字段
+   * @param fields 要查询的字段数组,默认查询所有字段
    * @returns 桌台信息或 null
    */
-  findTable (where: Partial<Table>, fields?: (keyof Table)[]) {
-    return this.find<TableRow>('game_tables', where, fields)
+  // 重载：不传 fields 返回整行
+  findTable (where: Partial<Table>): Promise<TableRow>
+  // 重载：传入字段数组时返回对应字段的子集
+  findTable <K extends keyof TableRow>(where: Partial<Table>, fields: K[]): Promise<Pick<TableRow, K>>
+  findTable <K extends keyof TableRow>(where: Partial<Table>, fields?: K[]) {
+    return this.find<TableRow, K>('game_tables', where, fields)
   }
 
   /**
@@ -36,11 +40,11 @@ export class TableRepository extends BaseRepository {
     if (Object.keys(res).length === 0) {
       return null
     }
-    return res as TableCache
+    return mapToTableCache(res)
   }
 
   async updateTableCache (tableId: string | number, table: Partial<TableCache>): Promise<void> {
-    await this.redis.hmset(`sys:t:${tableId}`, table)
+    await this.redis.hmset(`sys:t:${tableId}`, toRedisHash(table))
   }
 
   async findDealerByNo (dealerNo: string, fields: (keyof Dealer)[]) {

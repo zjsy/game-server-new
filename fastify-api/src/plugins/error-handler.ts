@@ -5,7 +5,7 @@ import { ApiResponse } from '../types/response.types.js'
 
 /**
  * 全局错误处理器插件
- * 统一处理业务异常，确保业务异常返回 HTTP 200 + 业务错误码
+ * 统一处理业务异常,确保业务异常返回 HTTP 200 + 业务错误码
  * 非业务异常保持原样处理
  */
 const errorHandler: FastifyPluginAsync = async (fastify) => {
@@ -20,7 +20,7 @@ const errorHandler: FastifyPluginAsync = async (fastify) => {
       body: request.body
     }, 'Request error')
 
-    // 如果是业务异常，返回 HTTP 200 + 业务错误码
+    // 如果是业务异常,返回 HTTP 200 + 业务错误码
     if (error instanceof BusinessError) {
       const response: ApiResponse<never> = {
         code: error.code,
@@ -29,7 +29,7 @@ const errorHandler: FastifyPluginAsync = async (fastify) => {
       return reply.status(200).send(response)
     }
 
-    // 非业务异常保持原样，让 Fastify 默认处理
+    // 非业务异常保持原样,让 Fastify 默认处理
     // 这包括：验证错误、404、500 等 HTTP 错误
     throw error
   })

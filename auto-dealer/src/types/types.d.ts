@@ -52,7 +52,8 @@ export type TableInfo = {
   roundNo: number;
   type: number;
   gameType: number;
-  playStatus: RoundStatus;
+  playStatus: RoundStatus | -1;
   currentShoe: number;
   currentRoundId: number;
+  currentCountdown: number;
 };

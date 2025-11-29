@@ -1,3 +1,7 @@
+export type rouletteDetails = {
+  n: number;
+}
+
 export enum RouletteBetType {
   // 1:1
   red = 1, // 1,3,5,7,9,12,14,16,18,19,21,23,25,27,30,32,34,36
@@ -68,7 +72,7 @@ export enum RouletteBetType {
   three_000102, // 0,1,2
   three_000203, // 0,2,3
 
-  // 分注 1:17 2个号码，投注于两个号码之间的格线上 。如2和3）
+  // 分注 1:17 2个号码,投注于两个号码之间的格线上 。如2和3）
   separate_0001, // 0,1
   separate_0002, // 0,2
   separate_0003, // 0,3
@@ -330,8 +334,8 @@ const RouletteOdds: { [key: number]: number } = {
   157: 35,
 }
 
-export function getRouletteOdds (beytype: RouletteBetType) {
-  return RouletteOdds[beytype]
+export function getRouletteOdds (betType: RouletteBetType) {
+  return RouletteOdds[betType]
 }
 
 const rouletteResMap = new Map([
@@ -374,8 +378,46 @@ const rouletteResMap = new Map([
   [36, [1, 4, 6, 9, 12, 23, 45, 58, 118, 120, 157]],
 ])
 // 0-36的数字
-export function getRouletteRes (res: number) {
-  return rouletteResMap.get(res)
+export function getRouletteResult (res: number) {
+  const result = rouletteResMap.get(res)
+  if (!result) {
+    throw new Error('Roulette result mapping not found')
+  }
+  return result
+}
+
+export function calWinLoseForRoulette (betDetails: Record<string, number>, hitRes: number[]): number {
+  let winLose = 0
+  for (const betKey in betDetails) {
+    const betType = Number(betKey)
+    const betAmount = betDetails[betKey]
+    // 算输赢
+    if (hitRes.includes(betType)) {
+      winLose += betAmount * getRouletteOdds(betType)
+    } else {
+      winLose -= betAmount
+    }
+  }
+  return winLose
+}
+
+export function calRollingForRoulette (totalBet:number, betDetails: Record<string, number>, hitRes:number[]) {
+  const bigBet = betDetails[RouletteBetType.big] ? betDetails[RouletteBetType.big] : 0
+  const smallBet = betDetails[RouletteBetType.small] ? betDetails[RouletteBetType.small] : 0
+  const evenBet = betDetails[RouletteBetType.even] ? betDetails[RouletteBetType.even] : 0
+  const oddBet = betDetails[RouletteBetType.odd] ? betDetails[RouletteBetType.odd] : 0
+  const redBet = betDetails[RouletteBetType.red] ? betDetails[RouletteBetType.red] : 0
+  const blackBet = betDetails[RouletteBetType.black] ? betDetails[RouletteBetType.black] : 0
+  return totalBet -
+            bigBet -
+            smallBet -
+            evenBet -
+            oddBet -
+            redBet -
+            blackBet +
+            Math.abs(bigBet - smallBet) +
+            Math.abs(evenBet - oddBet) +
+            Math.abs(redBet - blackBet)
 }
 
 export type rouStats = {

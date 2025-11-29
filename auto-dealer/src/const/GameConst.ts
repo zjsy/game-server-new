@@ -3,9 +3,9 @@ export enum GameType {
   DRAGONTIGER,
   Roulette,
   Sicbo,
-  NIUNIU,
-  TONGZI,
+  BullFight,
   FASTSICBO,
+  DragonPhoenix,
   SEDIE,
 }
 

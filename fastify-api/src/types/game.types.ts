@@ -1,21 +1,26 @@
-export type BaccDetails = {
-  p: number[];
-  b: number[];
-}
-
-/** -
- * 龙虎结果详情
- */
-export type DtDetails = {
-  d: number;
-  t: number;
-}
+import { BaccDetails } from '../constants/bacc.constants.js'
+import { BullDetails } from '../constants/bull.constants.js'
+import { DpDetails } from '../constants/dp.constants.js'
+import { DtDetails } from '../constants/dt.constants.js'
+import { FastSicBoDetails } from '../constants/fast-sicbo.constants.js'
+import { rouletteDetails } from '../constants/roulette.constants.js'
+import { seDieDetails } from '../constants/sedie.constants.js'
+import { sicBoDetails } from '../constants/sicbo.constants.js'
 
 export type betJson = {
   type: number;
   value: number;
 }
 
+type GameDetails = BaccDetails | DtDetails | sicBoDetails | BullDetails | DpDetails | FastSicBoDetails | seDieDetails | rouletteDetails | null
+export type SettleRoundData<T extends GameDetails> = {
+  // roundId: number;
+  round_sn: string;
+  result: number[];
+  details: T
+}
+
+// type PlayerLocation = 'p1' | 'p2' | 'p3' | 'p4' | 'p5' | 'p6' | 'p7'
 export type UserLocations = {
   p1: null | number;
   p2: null | number;
@@ -24,24 +29,4 @@ export type UserLocations = {
   p5: null | number;
   p6: null | number;
   p7: null | number;
-}
-type FixedNumberArray = [number, number, number, number, number]
-
-export type NiuDetails = {
-  h: number;
-  b: FixedNumberArray; // 1* 2 * 2 * 3 * 4
-  bP: number; // 0 五牛 1 -9 点数 10 牛牛 11 五花
-  p1: FixedNumberArray;
-  p1P: number;
-  p2: FixedNumberArray;
-  p2P: number;
-  p3: FixedNumberArray;
-  p3P: number;
-}
-
-export type SettleRoundData<T extends BaccDetails | DtDetails | NiuDetails | null> = {
-  // roundId: number;
-  round_sn: string;
-  result: number[];
-  details: T
 }

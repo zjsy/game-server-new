@@ -43,17 +43,19 @@ export class BroadcastQueueService extends BaseQueueService<BroadcastJob> {
    * 调度定时广播任务（重复执行）
    */
   async scheduleRepeat (tableId: number, intervalMs: number = 3000, endTime?: number): Promise<void> {
-    this.fastify.log.error({ tableId }, `Add Broadcasting stats schedule for table ${tableId}`)
-    await this.addJob(
+    this.queue.upsertJobScheduler(
+      `broadcast:stats:${tableId}`,
       {
-        tableId,
+        every: intervalMs,
+        startDate: new Date(Date.now() + intervalMs), // 延迟 intervalMs 后才开始第一次
+        endDate: endTime,
       },
       {
-        repeat: {
-          every: intervalMs, // 每 N 毫秒执行一次
-          endDate: endTime, // 结束时间
-        },
-        jobId: `broadcast:stats:${tableId}`, // 确保唯一
+        name: 'broadcast-stats-job',
+        data: { tableId },
+        opts: {
+          removeOnFail: true,
+        }
       }
     )
   }
@@ -78,7 +80,6 @@ export class BroadcastQueueService extends BaseQueueService<BroadcastJob> {
     this.fastify.log.error({ tableId }, 'Stopped repeat broadcast')
     const schedulerId = `broadcast:stats:${tableId}`
     await this.removeSchedulerById(schedulerId)
-    this.fastify.log.error({ tableId }, 'Stopped repeat broadcast')
   }
 
   /**
@@ -88,12 +89,11 @@ export class BroadcastQueueService extends BaseQueueService<BroadcastJob> {
     // TODO: 实现具体的广播统计数据逻辑
     this.fastify.log.info({ tableId }, `Broadcasting stats for table ${tableId}`)
     const gameRepository = this.fastify.repositories.game
-    const betStateC = await gameRepository.getBetStatsCCache(tableId)
-    const betStateN = await gameRepository.getBetStatsNCache(tableId)
+    const { statsC: betStatsC, statsN: betStatsN } = await gameRepository.getBetStatsCache(tableId)
     this.fastify.gameBroadcast?.globalBroadcast(PushConst.UPDATE_BET_INFO, {
       tableId,
-      betStateC,
-      betStateN,
+      betStatsC,
+      betStatsN,
     })
   }
 

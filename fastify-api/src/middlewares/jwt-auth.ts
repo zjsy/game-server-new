@@ -7,7 +7,7 @@ import { FastifyRequest, FastifyReply } from 'fastify'
 
 export interface AuthenticatedRequest extends FastifyRequest {
   tableNo: string
-  tableId: number  // JWT 中的桌台 ID，避免与 FastifyRequest.id 冲突
+  tableId: number  // JWT 中的桌台 ID,避免与 FastifyRequest.id 冲突
 }
 
 export interface JwtPayload {
@@ -26,7 +26,7 @@ export async function jwtAuthMiddleware (request: FastifyRequest, reply: Fastify
     // 验证 JWT token
     await request.jwtVerify()
 
-    // JWT 验证成功，payload 会自动添加到 request.user
+    // JWT 验证成功,payload 会自动添加到 request.user
     const authRequest = request as AuthenticatedRequest
     const payload = request.user as JwtPayload
     authRequest.tableNo = payload.tableNo

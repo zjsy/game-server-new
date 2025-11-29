@@ -16,8 +16,8 @@ export function generateDtRoundResult() {
   pokers[DtCardPositionEnum.tiger] = random(1, 52);
 
   return {
-    dragon: pokers[DtCardPositionEnum.dragon],
-    tiger: pokers[DtCardPositionEnum.tiger],
+    d: pokers[DtCardPositionEnum.dragon],
+    t: pokers[DtCardPositionEnum.tiger],
   };
 }
 

@@ -1,10 +1,10 @@
 import { BaseRepository } from './base.repository.js'
 import { FastifyInstance } from 'fastify'
 import { PoolConnection } from 'mysql2/promise'
-import { User, UserRow } from '../entities/User.js'
+import { mapToUserCache, User, UserCache, UserRow } from '../entities/User.js'
 import { UserBetStats } from '../entities/UserBetStats.js'
 import { UserWallet, UserWalletRow } from '../entities/UserWallet.js'
-import { UserCache } from '../types/cache.types.js'
+import { toRedisHash } from '../utils/json.parse.utils.js'
 
 export class UserRepository extends BaseRepository {
   constructor (protected fastify: FastifyInstance) {
@@ -47,7 +47,7 @@ export class UserRepository extends BaseRepository {
  * @param data
  */
   async updateUser (where: Partial<User>, data: Partial<User>) {
-    return await this.update('game_users', where, data)
+    return await this.update('game_users', data, where)
   }
 
   async addOnlineUserSetCache (userId:number) {
@@ -68,20 +68,22 @@ export class UserRepository extends BaseRepository {
       await this.redis.persist(`front:u:${userInfo.id}`)
       await this.redis.hdel(`front:u:${userInfo.id}`, 'currentTable')
     }
-    await this.redis.hmset(`front:u:${userInfo.id}`, userInfo as UserCache)
+    await this.redis.hmset(`front:u:${userInfo.id}`, toRedisHash(userInfo))
   }
 
   /**
- * 从redis获取用户信息，没有从数据库读取
+ * 从redis获取用户信息,没有从数据库读取
  * @param userInfo
  */
   async getUserCache (uid:number) {
-    let userInfo = (await this.redis.hgetall(`front:u:${uid}`)) as UserCache
+    const userInfo = (await this.redis.hgetall(`front:u:${uid}`))
     if (Object.keys(userInfo).length === 0) {
-      userInfo = (await (this.findUser({ id: uid }) as Promise<unknown>)) as UserCache
+      const user = await this.findUser({ id: uid })
       // await this.redis.hmset(`front:u:${uid}`, userInfo);
+      return user
+    } else {
+      return mapToUserCache(userInfo)
     }
-    return userInfo
   }
 
   /**
@@ -116,7 +118,7 @@ export class UserRepository extends BaseRepository {
   }
 
   /**
- * 7卓模式，批量获取用户数据
+ * 7卓模式,批量获取用户数据
  * @param userLocations
  * @returns
  */
@@ -206,7 +208,7 @@ export class UserRepository extends BaseRepository {
   }
 
   /**
- * 获取聊天次数，防止刷聊天
+ * 获取聊天次数,防止刷聊天
  * @param tableId
  * @param userId
  */

@@ -1,8 +1,8 @@
-import { BaccDetails } from '../types/game.types.js'
+export type BaccDetails = {
+  p: number[];
+  b: number[];
+}
 
-/**
- * 百家乐赔率
- */
 export enum BaccBetType {
   // 普通百家乐
   banker = 1,
@@ -121,7 +121,9 @@ const BaccOdds: Record<BaccBetType, number> = {
   [BaccBetType.tiePoint9]: 80,
 }
 
-const bonusOdds = {
+type BonusKey = 4 | 5 | 6 | 7 | 8 | 9
+
+const bonusOdds: Record<BonusKey, number> = {
   4: 1,
   5: 2,
   6: 4,
@@ -130,36 +132,36 @@ const bonusOdds = {
   9: 30,
 }
 
-export function getBonusOdds (diff:number) {
-  return bonusOdds[diff as keyof typeof bonusOdds] || 0
+export function getBonusOdds (diff: number): number {
+  return bonusOdds[diff as BonusKey] ?? 0
 }
 
-export function getBaccOdds (beytype: BaccBetType) {
-  return BaccOdds[beytype]
+export function getBaccOdds (betType: BaccBetType) {
+  return BaccOdds[betType]
 }
 
 // 获取限红odds
-export function getBaccOddsForLimit (betType: BaccBetType) {
-  let odds = 1
-  if (betType === BaccBetType.banker) {
-    odds = 1
-  } else if (betType === BaccBetType.super6) {
-    // super6
-    odds = 12
-  } else if (betType === BaccBetType.bankerBonus || betType === BaccBetType.playerBonus) {
-    // bonus
-    odds = 1
-  } else if (betType === BaccBetType.ccBanker || betType === BaccBetType.ccPlayer) {
-    // cowcow bacc
-    odds = 1
-  } else if (betType === BaccBetType.tigerPair) {
-    // tiger pair
-    odds = 4
-  } else {
-    odds = BaccOdds[betType]
-  }
-  return odds
-}
+// export function getBaccOddsForLimit (betType: BaccBetType) {
+//   let odds = 1
+//   if (betType === BaccBetType.banker) {
+//     odds = 1
+//   } else if (betType === BaccBetType.super6) {
+//     // super6
+//     odds = 12
+//   } else if (betType === BaccBetType.bankerBonus || betType === BaccBetType.playerBonus) {
+//     // bonus
+//     odds = 1
+//   } else if (betType === BaccBetType.ccBanker || betType === BaccBetType.ccPlayer) {
+//     // cowcow bacc
+//     odds = 1
+//   } else if (betType === BaccBetType.tigerPair) {
+//     // tiger pair
+//     odds = 4
+//   } else {
+//     odds = BaccOdds[betType]
+//   }
+//   return odds
+// }
 
 function getBaccPoint (cards:number[]) {
   return cards.reduce((prev, next) => {
@@ -301,7 +303,7 @@ export function parseBaccResult (details: BaccDetails, points: { bp: number; pp:
   return resArr
 }
 
-export function calWinloseForBacc (betDetails: Record<string, number>, hitRes:number[], details: BaccDetails, points: { bp: number; pp: number } | null) {
+export function calWinLoseForBacc (betDetails: Record<string, number>, hitRes:number[], details: BaccDetails, points: { bp: number; pp: number } | null) {
   let winLose = 0
   for (const betKey in betDetails) {
     const betType = Number(betKey)
@@ -477,7 +479,7 @@ export function calRollingForBacc (totalBet:number, betDetails: Record<string, n
   const bankerBonus = betDetails[BaccBetType.bankerBonus] ? betDetails[BaccBetType.bankerBonus] : 0
   const playerBonus = betDetails[BaccBetType.playerBonus] ? betDetails[BaccBetType.playerBonus] : 0
   if (hitRes.includes(BaccBetType.tie)) {
-    // 开和时候，庄闲下注不算洗码
+    // 开和时候,庄闲下注不算洗码
     return totalBet - playerBet - bankerBet - noCommBankerBet - bankerBonus - playerBonus
   } else {
     return totalBet - playerBet - bankerBet - noCommBankerBet + Math.abs(playerBet - bankerBet - noCommBankerBet)
