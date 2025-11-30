@@ -1,0 +1,14 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "http:customized",
+  "description": "Allow all plugin-http fetch methods",
+  "windows": [
+    "main"
+  ],
+  "permissions": [
+    {
+      "identifier": "http:default",
+      "allow": ["http://localhost:8081/*","http://localhost:3000/*"]
+    }
+  ]
+}

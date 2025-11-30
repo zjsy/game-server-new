@@ -61,8 +61,8 @@ const commonRoute: FastifyPluginAsync = async (fastify) => {
     return success(result)
   })
 
-  // GET /api/last-game - broadcast the last game message.
-  fastify.get('/last-game', {
+  // POST /api/last-game - broadcast the last game message.
+  fastify.post('/last-game', {
     preHandler: [jwtAuthMiddleware],
     schema: {
       tags: ['common'],
@@ -78,8 +78,8 @@ const commonRoute: FastifyPluginAsync = async (fastify) => {
     return success(result)
   })
 
-  // GET /api/get-round-list - query round list
-  fastify.get('/get-round-list', {
+  // POST /api/get-round-list - query round list
+  fastify.post('/get-round-list', {
     preHandler: [jwtAuthMiddleware],
     schema: {
       tags: ['common'],

@@ -1,3 +1,17 @@
+// Vue 全局属性扩展：$dialog
+import type { dialog as DialogSingleton } from "../utils/dialog";
+declare module "@vue/runtime-core" {
+  interface ComponentCustomProperties {
+    $dialog: typeof DialogSingleton;
+  }
+}
+
+declare module "*.vue" {
+  import type { DefineComponent } from "vue";
+  const component: DefineComponent<{}, {}, any>;
+  export default component;
+}
+
 import { RoundStatus } from "../const/GameConst";
 
 export type StartResponse = {

@@ -22,6 +22,10 @@ export type DealingRequest = {
   details: number;
 }
 
+export type StopBetRequest = {
+  roundId: number;
+}
+
 export type SettleRequest<T> = {
   roundId: number;
   details: T;

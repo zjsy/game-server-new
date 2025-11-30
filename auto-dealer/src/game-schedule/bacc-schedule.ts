@@ -18,25 +18,13 @@ export type Task = {
 //   { name: "settlement", fn: settlement, delay: 1500 },
 // ];
 
-export interface TaskPipeline {
-  runPipeline(): Promise<void>;
-  start(data: TableInfo): Promise<void>;
-  stop(): void;
-}
-
-export class BaccTaskPipeline implements TaskPipeline {
-  private running: boolean;
-  private tasks: Array<Task> = [];
-  private tableInfo: TableInfo | null = null;
-  private baccService: BaccApiService;
-  constructor(apiService: BaccApiService) {
-    this.baccService = apiService;
-    // this.tasks = tasks;
-    this.running = false;
-  }
-
+export abstract class TaskPipeline {
+  protected running: boolean = false;
+  protected tasks: Array<Task> = [];
+  protected tableInfo: TableInfo | null = null;
+  protected countdownTimer: NodeJS.Timeout | null = null;
   async runPipeline() {
-    this.running;
+    this.running = true;
     let input: any = null;
     while (this.running) {
       for (const task of this.tasks) {
@@ -45,6 +33,48 @@ export class BaccTaskPipeline implements TaskPipeline {
         input = await task.fn(input);
       }
     }
+  }
+  abstract start(data: TableInfo): Promise<void>;
+  stop() {
+    console.warn("Task Pipeline Stopped");
+    this.running = false;
+    // 清理倒计时定时器
+    if (this.countdownTimer) {
+      clearInterval(this.countdownTimer);
+      this.countdownTimer = null;
+    }
+  }
+  destroy() {
+    console.warn("Task Pipeline Destroyed");
+    this.stop();
+    // 清理所有引用
+    this.tasks = [];
+    this.tableInfo = null;
+  }
+  protected countdown(seconds: number) {
+    console.log("Countdown started:", seconds);
+    // 清理旧的定时器
+    if (this.countdownTimer) {
+      clearInterval(this.countdownTimer);
+    }
+    let remaining = seconds;
+    this.countdownTimer = setInterval(() => {
+      console.log(remaining);
+      this.tableInfo.currentCountdown = remaining;
+      remaining--;
+      this.tableInfo.currentCountdown = remaining;
+      if (remaining < 0) {
+        clearInterval(this.countdownTimer);
+        this.countdownTimer = null;
+        console.log("倒计时结束！");
+      }
+    }, 1000);
+  }
+}
+
+export class BaccTaskPipeline extends TaskPipeline {
+  constructor(private apiService: BaccApiService) {
+    super();
   }
 
   async start(data: TableInfo) {
@@ -94,19 +124,14 @@ export class BaccTaskPipeline implements TaskPipeline {
   //   return 0;
   // }
 
-  stop() {
-    console.warn("Bacc Task Pipeline Stopped");
-    this.running = false;
-  }
-
   private startGame = async (_input: any): Promise<any> => {
     console.log("Game Start", new Date(), this.tableInfo);
-    const res = await this.baccService.baccStartGame();
-    if (res.data.code !== 0) {
-      throw new Error(`Start Game Failed: ${res.data.msg || "Unknown error"}`);
+    const res = await this.apiService.baccStartGame();
+    if (res.code !== 0) {
+      throw new Error(`Start Game Failed: ${res.msg || "Unknown error"}`);
     }
     this.countdown(this.tableInfo!.countdown);
-    const data = res.data.data;
+    const data = res.data;
     console.log("Start Game Response:", data);
     this.tableInfo.currentRoundId = data.id;
     this.tableInfo.roundNo = data.roundNo;
@@ -114,20 +139,6 @@ export class BaccTaskPipeline implements TaskPipeline {
     this.tableInfo.playStatus = RoundStatus.Betting;
     return data;
   };
-
-  private countdown(seconds: number) {
-    console.log("Countdown started:", seconds);
-    let remaining = seconds;
-    const timer = setInterval(() => {
-      console.log(remaining);
-      remaining--;
-      this.tableInfo.currentCountdown = remaining;
-      if (remaining < 0) {
-        clearInterval(timer);
-        console.log("倒计时结束！");
-      }
-    }, 1000);
-  }
 
   private settlement = async (_input: any) => {
     this.tableInfo.playStatus = RoundStatus.Dealing;
@@ -151,7 +162,7 @@ export class BaccTaskPipeline implements TaskPipeline {
       const l = pokerList.length;
       for (let i = 0; i < l; i++) {
         setTimeout(() => {
-          this.baccService.baccDealingCards({
+          this.apiService.baccDealingCards({
             index: pokerList[i].i,
             details: pokerList[i].p,
           });
@@ -160,12 +171,12 @@ export class BaccTaskPipeline implements TaskPipeline {
     }
     await new Promise((resolve) => setTimeout(resolve, 4000));
     console.log("Settlement", new Date(), this.tableInfo);
-    const res = await this.baccService.baccSettlement({
+    const res = await this.apiService.baccSettlement({
       roundId: this.tableInfo.currentRoundId,
       details: details,
     });
-    if (res.data.code !== 0) {
-      throw new Error(`Settlement Failed: ${res.data.msg || "Unknown error"}`);
+    if (res.code !== 0) {
+      throw new Error(`Settlement Failed: ${res.msg || "Unknown error"}`);
     }
     this.tableInfo.playStatus = RoundStatus.Over;
     if (this.tableInfo.roundNo >= 99) {
@@ -176,8 +187,8 @@ export class BaccTaskPipeline implements TaskPipeline {
 
   private changeShoes = async () => {
     console.log("Shoes Changed", this.tableInfo);
-    const res = await this.baccService.baccNewShoes();
-    const data = res.data.data;
+    const res = await this.apiService.baccNewShoes();
+    const data = res.data;
     console.log("New Shoes Response:", data);
     this.tableInfo.currentShoe = data.shoeNo;
   };

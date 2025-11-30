@@ -4,7 +4,7 @@ import { jwtAuthMiddleware } from '../../../middlewares/jwt-auth.js'
 import { BusinessError, ErrorCode, success } from '../../../utils/http.utils.js'
 import { DpService } from '../../../services/game/dp.service.js'
 import { ApiType } from '../../../infrastructure/lock.service.js'
-import { DealingRequest, SettleRequest, CancelRequest } from '../../../types/request.types.js'
+import { DealingRequest, SettleRequest, CancelRequest, StopBetRequest } from '../../../types/request.types.js'
 import { DpDetails } from '../../../constants/dp.constants.js'
 
 const dpRoute: FastifyPluginAsync = async (fastify) => {
@@ -25,6 +25,20 @@ const dpRoute: FastifyPluginAsync = async (fastify) => {
     } finally {
       await fastify.lockManager.releaseApiLock(ApiType.START_GAME, tableId)
     }
+  })
+
+  // POST /api/dp/stop - stop bet
+  fastify.post('/stop', {
+    preHandler: [jwtAuthMiddleware],
+  }, async (request, _reply) => {
+    const authRequest = request as AuthenticatedRequest
+    const tableId = authRequest.tableId
+    const { roundId } = request.body as StopBetRequest
+    fastify.log.info({ tableId, roundId }, 'Stop bet request')
+
+    const result = await dpService.stopBet(tableId, roundId)
+
+    return success(result, 'stop bet successful')
   })
 
   // POST /api/dp/dealing - 发牌

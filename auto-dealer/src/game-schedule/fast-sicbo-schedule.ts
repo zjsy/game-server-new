@@ -2,29 +2,11 @@ import { FastSicboApiService } from "../const/centrifugo/fast-sicbo.api.service"
 import { RoundStatus } from "../const/GameConst";
 import { TableInfo } from "../types/types";
 import { generateFastSicboRoundResult } from "../utils/fast-sicbo.utils";
-import { TaskPipeline, Task } from "./bacc-schedule";
+import { TaskPipeline } from "./bacc-schedule";
 
-export class FastSicboTaskPipeline implements TaskPipeline {
-  private running: boolean;
-  private tasks: Array<Task> = [];
-  private tableInfo: TableInfo | null = null;
-  private apiService: FastSicboApiService;
-  constructor(apiService: FastSicboApiService) {
-    this.apiService = apiService;
-    // this.tasks = tasks;
-    this.running = false;
-  }
-
-  async runPipeline() {
-    this.running;
-    let input: any = null;
-    while (this.running) {
-      for (const task of this.tasks) {
-        await new Promise((resolve) => setTimeout(resolve, task.delay));
-        if (!this.running) break; // 延迟后再次检查
-        input = await task.fn(input);
-      }
-    }
+export class FastSicboTaskPipeline extends TaskPipeline {
+  constructor(private apiService: FastSicboApiService) {
+    super();
   }
 
   async start(data: TableInfo) {
@@ -52,17 +34,17 @@ export class FastSicboTaskPipeline implements TaskPipeline {
   }
 
   stop() {
-    console.warn("Bacc Task Pipeline Stopped");
-    this.running = false;
+    super.stop();
+    console.warn("Fast Sicbo Task Pipeline Stopped");
   }
 
   private startGame = async (_input: any): Promise<any> => {
     console.log("Game Start", new Date(), this.tableInfo);
     const res = await this.apiService.startGame();
-    if (res.data.code !== 0) {
-      throw new Error(`Start Game Failed: ${res.data.msg || "Unknown error"}`);
+    if (res.code !== 0) {
+      throw new Error(`Start Game Failed: ${res.msg || "Unknown error"}`);
     }
-    const data = res.data.data;
+    const data = res.data;
     console.log("Start Game Response:", data);
     this.tableInfo.currentRoundId = data.id;
     this.tableInfo.roundNo = data.roundNo;
@@ -81,8 +63,8 @@ export class FastSicboTaskPipeline implements TaskPipeline {
       roundId: this.tableInfo.currentRoundId,
       details: { d: diceNum },
     });
-    if (res.data.code !== 0) {
-      throw new Error(`Settlement Failed: ${res.data.msg || "Unknown error"}`);
+    if (res.code !== 0) {
+      throw new Error(`Settlement Failed: ${res.msg || "Unknown error"}`);
     }
     this.tableInfo.playStatus = RoundStatus.Over;
     return res.data;

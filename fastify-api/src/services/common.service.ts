@@ -81,6 +81,7 @@ export class TableService {
     const sessionId = crypto.randomUUID()
 
     // 4. 生成 JWT access token (短期有效)
+    const expiresIn = 3600 // 1小时
     const token = this.fastify.jwt.sign(
       {
         tableNo: table.table_no,
@@ -91,7 +92,7 @@ export class TableService {
         type: 'access', // 标记为 access token
       },
       {
-        expiresIn: '1h', // access token 有效期 1 小时
+        expiresIn
       }
     )
 
@@ -104,7 +105,7 @@ export class TableService {
         type: 'refresh', // 标记为 refresh token
       },
       {
-        expiresIn: '7d', // refresh token 有效期 7 天
+        expiresIn: 3600 * 24 * 7, // refresh token 有效期 7 天
       }
     )
 
@@ -221,10 +222,11 @@ export class TableService {
       maintain: table.maintain,
       playStatus: roundInfo ? roundInfo.status : -1,
       video: table.site_url,
-      token,
-      refreshToken, // 返回 refresh token
       roundStopTime: roundEndTime,
       roundCountdown: subTime > 0 ? Math.floor(subTime / 1000) : 0,
+      token,
+      refreshToken, // 返回 refresh token
+      expiresIn
     }
   }
 
@@ -363,7 +365,7 @@ export class TableService {
     }
 
     // 6. 生成新的 access token
-    const expiresIn = '1h'
+    const expiresIn = 3600 // 1小时
     const newAccessToken = this.fastify.jwt.sign(
       {
         tableNo: table.table_no,
@@ -387,7 +389,7 @@ export class TableService {
         type: 'refresh',
       } as JwtPayload,
       {
-        expiresIn: '7d',
+        expiresIn: 3600 * 24 * 7, // 7天
       }
     )
 

@@ -5,7 +5,7 @@
   "identifier": "fggame.robot-vue3",
   "build": {
     "frontendDist": "../dist",
-    "devUrl": "http://localhost:8080",
+    "devUrl": "http://localhost:3001",
     "beforeDevCommand": "npm run dev",
     "beforeBuildCommand": "npm run build"
   },
@@ -20,7 +20,8 @@
       }
     ],
     "security": {
-      "csp": null
+      "csp": null,
+      "capabilities": ["default","http:customized"]
     }
   },
   "bundle": {

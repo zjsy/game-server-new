@@ -4,7 +4,7 @@ import { jwtAuthMiddleware } from '../../../middlewares/jwt-auth.js'
 import { BusinessError, ErrorCode, success } from '../../../utils/http.utils.js'
 import { RouletteService } from '../../../services/game/roulette.service.js'
 import { ApiType } from '../../../infrastructure/lock.service.js'
-import { SettleRequest, CancelRequest } from '../../../types/request.types.js'
+import { SettleRequest, CancelRequest, StopBetRequest } from '../../../types/request.types.js'
 import { rouletteDetails } from '../../../constants/roulette.constants.js'
 
 const rouletteRoute: FastifyPluginAsync = async (fastify) => {
@@ -25,6 +25,20 @@ const rouletteRoute: FastifyPluginAsync = async (fastify) => {
     } finally {
       await fastify.lockManager.releaseApiLock(ApiType.START_GAME, tableId)
     }
+  })
+
+  // POST /api/roulette/stop - stop bet
+  fastify.post('/stop', {
+    preHandler: [jwtAuthMiddleware],
+  }, async (request, _reply) => {
+    const authRequest = request as AuthenticatedRequest
+    const tableId = authRequest.tableId
+    const { roundId } = request.body as StopBetRequest
+    fastify.log.info({ tableId, roundId }, 'Stop bet request')
+
+    const result = await rouletteService.stopBet(tableId, roundId)
+
+    return success(result, 'stop bet successful')
   })
 
   // POST /api/roulette/settle - 结算

@@ -4,7 +4,7 @@ import { jwtAuthMiddleware } from '../../../middlewares/jwt-auth.js'
 import { BusinessError, ErrorCode, success } from '../../../utils/http.utils.js'
 import { BullService } from '../../../services/game/bull.service.js'
 import { ApiType } from '../../../infrastructure/lock.service.js'
-import { DealingRequest, SettleRequest, CancelRequest } from '../../../types/request.types.js'
+import { DealingRequest, SettleRequest, CancelRequest, StopBetRequest } from '../../../types/request.types.js'
 import { BullDetails } from '../../../constants/bull.constants.js'
 
 const bullRoute: FastifyPluginAsync = async (fastify) => {
@@ -25,6 +25,20 @@ const bullRoute: FastifyPluginAsync = async (fastify) => {
     } finally {
       await fastify.lockManager.releaseApiLock(ApiType.START_GAME, tableId)
     }
+  })
+
+  // POST /api/bull/stop - stop bet
+  fastify.post('/stop', {
+    preHandler: [jwtAuthMiddleware],
+  }, async (request, _reply) => {
+    const authRequest = request as AuthenticatedRequest
+    const tableId = authRequest.tableId
+    const { roundId } = request.body as StopBetRequest
+    fastify.log.info({ tableId, roundId }, 'Stop bet request')
+
+    const result = await bullService.stopBet(tableId, roundId)
+
+    return success(result, 'stop bet successful')
   })
 
   // POST /api/bull/dealing - 发牌

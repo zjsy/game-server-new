@@ -4,7 +4,7 @@ import { jwtAuthMiddleware } from '../../../middlewares/jwt-auth.js'
 import { BusinessError, ErrorCode, success } from '../../../utils/http.utils.js'
 import { BaccService } from '../../../services/game/bacc.service.js'
 import { ApiType } from '../../../infrastructure/lock.service.js'
-import { DealingRequest, SettleRequest, CancelRequest } from '../../../types/request.types.js'
+import { DealingRequest, SettleRequest, CancelRequest, StopBetRequest } from '../../../types/request.types.js'
 import { BaccDetails } from '../../../constants/bacc.constants.js'
 
 const baccRoute: FastifyPluginAsync = async (fastify) => {
@@ -25,6 +25,20 @@ const baccRoute: FastifyPluginAsync = async (fastify) => {
     } finally {
       await fastify.lockManager.releaseApiLock(ApiType.START_GAME, tableId)
     }
+  })
+
+  // POST /api/bacc/stop - stop bet
+  fastify.post('/stop', {
+    preHandler: [jwtAuthMiddleware],
+  }, async (request, _reply) => {
+    const authRequest = request as AuthenticatedRequest
+    const tableId = authRequest.tableId
+    const { roundId } = request.body as StopBetRequest
+    fastify.log.info({ tableId, roundId }, 'Stop bet request')
+
+    const result = await baccService.stopBet(tableId, roundId)
+
+    return success(result, 'stop bet successful')
   })
 
   // POST /api/bacc/dealing - 发牌
@@ -116,8 +130,8 @@ const baccRoute: FastifyPluginAsync = async (fastify) => {
     return success({ shoeNo: result }, 'shuffle successful')
   })
 
-  // GET /api/bacc/stop-shuffle - 停止洗牌
-  // fastify.get('/stop-shuffle', async (request, reply) => {
+  // POST /api/bacc/stop-shuffle - 停止洗牌
+  // fastify.post('/stop-shuffle', async (request, reply) => {
   //   const authRequest = request as AuthenticatedRequest
   //   const tableId = authRequest.tableId
 

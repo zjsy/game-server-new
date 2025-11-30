@@ -1,7 +1,7 @@
 import { Package, Message, Protocol } from "./protocol";
-import { Protobuf } from "pinus-protobuf";
 import { EventEmitter } from "events";
 import { Buffer } from "buffer";
+import { Protobuf } from "../protobuf/protobuf";
 // import { MyWebsocket } from './websocket'
 
 const JS_WS_CLIENT_TYPE = "js-websocket";

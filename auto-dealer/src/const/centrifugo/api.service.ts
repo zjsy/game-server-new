@@ -1,18 +1,25 @@
-import axios from "axios";
-import { AxiosClient } from "../../utils/axios-utils";
+import { FetchClient } from "../../utils/http.utils";
 import { BaseResponse, LoginTableResponse } from "../../types/types";
+import { httpFetch } from "../../utils/http.utils";
 
 const baseUrl = import.meta.env.VITE_BASE_URL || "";
-export async function loginTableApi(data: { t: string; p: string }) {
-  const response = await axios.post<BaseResponse<LoginTableResponse>>(
-    baseUrl + "/api/table-login",
-    data
-  );
-  return response.data;
+export async function loginTableApi(requestData: { t: string; p: string }) {
+  try {
+    const res = await httpFetch(baseUrl + "/api/table-login", {
+      method: "POST",
+      body: JSON.stringify(requestData),
+      headers: {
+        "Content-Type": "application/json",
+      },
+    });
+    return (await res.json()) as BaseResponse<LoginTableResponse>;
+  } catch (error) {
+    throw error;
+  }
 }
 
 export class BaseApiClient {
-  public axiosClient: AxiosClient;
+  public axiosClient: FetchClient;
   constructor(data: { token: string; refreshToken: string }) {
     const config = {
       baseURL: baseUrl,
@@ -20,7 +27,11 @@ export class BaseApiClient {
       tokenStorage: data,
       refreshTokenUrl: "/api/refresh-token",
     };
-    this.axiosClient = new AxiosClient(config);
+    this.axiosClient = new FetchClient(config);
+  }
+
+  loginTableApi(data: { t: string; p: string }) {
+    return this.axiosClient.post("/api/table-login", data);
   }
 
   loginDealerApi(data: { dealerNo: string }) {

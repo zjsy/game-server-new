@@ -5,29 +5,11 @@ import {
   BullCardPositionEnum,
   generateBullRoundResult,
 } from "../utils/BullUtils";
-import { Task, TaskPipeline } from "./bacc-schedule";
+import { TaskPipeline } from "./bacc-schedule";
 
-export class BullTaskPipeline implements TaskPipeline {
-  private running: boolean;
-  private tasks: Array<Task> = [];
-  private tableInfo: TableInfo | null = null;
-  private apiService: BullApiService;
-  constructor(apiService: BullApiService) {
-    this.apiService = apiService;
-    // this.tasks = tasks;
-    this.running = false;
-  }
-
-  async runPipeline() {
-    this.running;
-    let input: any = null;
-    while (this.running) {
-      for (const task of this.tasks) {
-        await new Promise((resolve) => setTimeout(resolve, task.delay));
-        if (!this.running) break; // 延迟后再次检查
-        input = await task.fn(input);
-      }
-    }
+export class BullTaskPipeline extends TaskPipeline {
+  constructor(private apiService: BullApiService) {
+    super();
   }
 
   async start(data: TableInfo) {
@@ -54,18 +36,13 @@ export class BullTaskPipeline implements TaskPipeline {
     this.runPipeline();
   }
 
-  stop() {
-    console.warn("Bull Task Pipeline Stopped");
-    this.running = false;
-  }
-
   startGame = async (_input: any): Promise<any> => {
     console.log("Game Start", new Date(), this.tableInfo);
     const res = await this.apiService.startGame();
-    if (res.data.code !== 0) {
-      throw new Error(`Start Game Failed: ${res.data.msg || "Unknown error"}`);
+    if (res.code !== 0) {
+      throw new Error(`Start Game Failed: ${res.msg || "Unknown error"}`);
     }
-    const data = res.data.data;
+    const data = res.data;
     console.log("Start Game Response:", data);
     this.tableInfo.currentRoundId = data.id;
     this.tableInfo.roundNo = data.roundNo;
@@ -118,8 +95,8 @@ export class BullTaskPipeline implements TaskPipeline {
       result: result,
       details: details,
     });
-    if (res.data.code !== 0) {
-      throw new Error(`Settlement Failed: ${res.data.msg || "Unknown error"}`);
+    if (res.code !== 0) {
+      throw new Error(`Settlement Failed: ${res.msg || "Unknown error"}`);
     }
     this.tableInfo.playStatus = RoundStatus.Over;
     return res.data;

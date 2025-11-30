@@ -23,10 +23,11 @@ export interface TableLoginResponse {
   maintain: number
   playStatus: number
   video: string
-  token: string
-  refreshToken: string // 新增 refresh token
   roundStopTime: number
   roundCountdown: number
+  token: string
+  refreshToken: string // 新增 refresh token
+  expiresIn: number // token 有效期，单位秒
 }
 
 export interface DealerLoginResponse {
@@ -50,7 +51,7 @@ export interface GetRoundListResponse {
 export interface RefreshTokenResponse {
   token: string
   refreshToken: string
-  expiresIn: string
+  expiresIn: number
 }
 
 export type SettleResponse = {

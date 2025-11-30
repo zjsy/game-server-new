@@ -5,29 +5,11 @@ import {
   DrPhCardPositionEnum,
   generateDrPhRoundResult,
 } from "../utils/dragon-phoenix.utils";
-import { Task, TaskPipeline } from "./bacc-schedule";
+import { TaskPipeline } from "./bacc-schedule";
 
-export class DpTaskPipeline implements TaskPipeline {
-  private running: boolean;
-  private tasks: Array<Task> = [];
-  private tableInfo: TableInfo | null = null;
-  private apiService: DpApiService;
-  constructor(apiService: DpApiService) {
-    this.apiService = apiService;
-    // this.tasks = tasks;
-    this.running = false;
-  }
-
-  async runPipeline() {
-    this.running;
-    let input: any = null;
-    while (this.running) {
-      for (const task of this.tasks) {
-        await new Promise((resolve) => setTimeout(resolve, task.delay));
-        if (!this.running) break; // 延迟后再次检查
-        input = await task.fn(input);
-      }
-    }
+export class DpTaskPipeline extends TaskPipeline {
+  constructor(private apiService: DpApiService) {
+    super();
   }
 
   async start(data: TableInfo) {
@@ -55,17 +37,17 @@ export class DpTaskPipeline implements TaskPipeline {
   }
 
   stop() {
+    super.stop();
     console.warn("Dp Task Pipeline Stopped");
-    this.running = false;
   }
 
   private startGame = async (_input: any): Promise<any> => {
     console.log("Game Start", new Date(), this.tableInfo);
     const res = await this.apiService.startGame();
-    if (res.data.code !== 0) {
-      throw new Error(`Start Game Failed: ${res.data.msg || "Unknown error"}`);
+    if (res.code !== 0) {
+      throw new Error(`Start Game Failed: ${res.msg || "Unknown error"}`);
     }
-    const data = res.data.data;
+    const data = res.data;
     console.log("Start Game Response:", data);
     this.tableInfo.currentRoundId = data.id;
     this.tableInfo.roundNo = data.roundNo;
@@ -103,8 +85,8 @@ export class DpTaskPipeline implements TaskPipeline {
       roundId: this.tableInfo.currentRoundId,
       details: details,
     });
-    if (res.data.code !== 0) {
-      throw new Error(`Settlement Failed: ${res.data.msg || "Unknown error"}`);
+    if (res.code !== 0) {
+      throw new Error(`Settlement Failed: ${res.msg || "Unknown error"}`);
     }
     this.tableInfo.playStatus = RoundStatus.Over;
     return res.data;

@@ -3,7 +3,7 @@ import type { AuthenticatedRequest } from '../../../middlewares/jwt-auth.js'
 import { jwtAuthMiddleware } from '../../../middlewares/jwt-auth.js'
 import { BusinessError, ErrorCode, success } from '../../../utils/http.utils.js'
 import { ApiType } from '../../../infrastructure/lock.service.js'
-import { SettleRequest, CancelRequest } from '../../../types/request.types.js'
+import { SettleRequest, CancelRequest, StopBetRequest } from '../../../types/request.types.js'
 import { SicBoService } from '../../../services/game/sicbo.service.js'
 import { sicBoDetails } from '../../../constants/sicbo.constants.js'
 
@@ -25,6 +25,20 @@ const sicBoRoute: FastifyPluginAsync = async (fastify) => {
     } finally {
       await fastify.lockManager.releaseApiLock(ApiType.START_GAME, tableId)
     }
+  })
+
+  // POST /api/sicbo/stop - stop bet
+  fastify.post('/stop', {
+    preHandler: [jwtAuthMiddleware],
+  }, async (request, _reply) => {
+    const authRequest = request as AuthenticatedRequest
+    const tableId = authRequest.tableId
+    const { roundId } = request.body as StopBetRequest
+    fastify.log.info({ tableId, roundId }, 'Stop bet request')
+
+    const result = await sicBoService.stopBet(tableId, roundId)
+
+    return success(result, 'stop bet successful')
   })
 
   // POST /api/sicbo/settle - 结算
