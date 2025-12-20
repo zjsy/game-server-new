@@ -1,4 +1,5 @@
 import { FastifyRequest, FastifyReply } from 'fastify'
+import { Table } from '../entities/TableInfo.js'
 
 /**
  * JWT 鉴权中间件
@@ -6,15 +7,20 @@ import { FastifyRequest, FastifyReply } from 'fastify'
  */
 
 export interface AuthenticatedRequest extends FastifyRequest {
-  tableNo: string
   tableId: number  // JWT 中的桌台 ID,避免与 FastifyRequest.id 冲突
+  tableNo: string
 }
 
-export interface JwtPayload {
+export interface BaseJwtPayload {
+  sub: string  // 主题,通常为用户标识
   type: string
-  tableNo: string
-  tableId: number
-  sessionId: string
+  info?: Partial<Table>,
+}
+
+export interface JwtPayload extends BaseJwtPayload {
+  iat: number // 签发时自动注入
+  exp: number // 签发时自动注入
+  jti: string // 签发时自动注入,JWT ID，用于唯一标识一次会话
 }
 
 /**
@@ -29,11 +35,10 @@ export async function jwtAuthMiddleware (request: FastifyRequest, reply: Fastify
     // JWT 验证成功,payload 会自动添加到 request.user
     const authRequest = request as AuthenticatedRequest
     const payload = request.user as JwtPayload
-    authRequest.tableNo = payload.tableNo
-    authRequest.tableId = payload.tableId
+    authRequest.tableId = Number(payload.sub)
 
     // 验证 sessionId 是否存在于 Redis 中
-    if (!payload.sessionId) {
+    if (!payload.jti) {
       request.log.warn('Missing sessionId in JWT payload')
       return reply.code(401).send({
         error: 'Unauthorized',
@@ -42,15 +47,15 @@ export async function jwtAuthMiddleware (request: FastifyRequest, reply: Fastify
     }
 
     // 从 Redis 中获取存储的 sessionId
-    const redisKey = `sys:session:table:${payload.tableId}`
+    const redisKey = `sys:session:table:${payload.sub}`
     const storedSessionId = await request.server.redis.get(redisKey)
 
     // 验证 sessionId 是否匹配
-    if (storedSessionId !== payload.sessionId) {
+    if (storedSessionId !== payload.jti) {
       request.log.warn({
-        tableId: payload.tableId,
+        tableId: payload.sub,
         expectedSessionId: storedSessionId,
-        receivedSessionId: payload.sessionId
+        receivedSessionId: payload.jti
       }, 'SessionId mismatch - another client has logged in')
 
       return reply.code(401).send({
@@ -60,9 +65,8 @@ export async function jwtAuthMiddleware (request: FastifyRequest, reply: Fastify
     }
 
     request.log.debug({
-      tableNo: payload.tableNo,
-      tableId: payload.tableId,
-      sessionId: payload.sessionId
+      tableId: Number(payload.sub),
+      sessionId: payload.jti
     }, 'JWT and session verified successfully')
   } catch (err) {
     request.log.error({ err }, 'JWT verification failed')

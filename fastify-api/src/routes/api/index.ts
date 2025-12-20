@@ -26,7 +26,6 @@ const commonRoute: FastifyPluginAsync = async (fastify) => {
     fastify.log.info({ tableNo: data.t, loginIp }, 'Table login request')
     // 执行登录逻辑
     const result = await tableService.tableLogin(data.t, data.p, loginIp)
-
     return success(result)
   })
 
@@ -105,21 +104,15 @@ const commonRoute: FastifyPluginAsync = async (fastify) => {
 
   // POST /api/refresh-token - refresh token
   fastify.post('/refresh-token', {
-    preHandler: [jwtAuthMiddleware],
     schema: {
       tags: ['common'],
       description: 'refresh Token'
     }
   }, async (request, _reply) => {
-    const authRequest = request as AuthenticatedRequest
-    const tableNo = authRequest.tableNo
+    const body = request.body as { refreshToken: string }
+    const refreshToken = body.refreshToken
 
-    // 获取客户端 IP
-    const loginIp = request.ip || 'unknown'
-
-    fastify.log.info({ tableNo, loginIp }, 'Refresh token request')
-
-    const result = await tableService.refreshToken(tableNo)
+    const result = await tableService.refreshToken(refreshToken)
     return success(result, 'Token refreshed successfully')
   })
 }

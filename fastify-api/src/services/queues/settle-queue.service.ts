@@ -3,7 +3,6 @@ import type { FastifyInstance } from 'fastify'
 import { BaseQueueService } from './base-queue.service.js'
 import { TransactionsType, UserType, UserWalletType } from '../../constants/game.constants.js'
 import { PushConst } from '../../constants/push.constants.js'
-import { v1 as uuidV1 } from 'uuid'
 import { GameApiResponse } from '../../infrastructure/api.service.js'
 import { UserRepository } from '../../repositories/user.repository.js'
 // import { BetOrder } from '../../entities/BetOrder.js'
@@ -161,7 +160,7 @@ export class SettleQueueService extends BaseQueueService<SettleJob> {
         betAmount: order.bet_amount,
         amount: change,
         winLose: order.settle_result,
-        txd: uuidV1().replace(/-/g, ''),
+        txd: crypto.randomUUID().replace(/-/g, ''),
         gameType: order.game_type,
         tableId: order.table_no,
         gameId: roundSn,
@@ -190,10 +189,11 @@ export class SettleQueueService extends BaseQueueService<SettleJob> {
       this.handleSuccess(userRepository, { user_id: order.user_id, table_id: order.table_id, settle_result: order.settle_result }, settleRes.amount ?? 0)
     } else {
       // 只有当结算余额大于0,才更新余额,以前是0,也新增结算变化
-      //! 必须使用数据库事务
+      let afterBalance = 0
       await userRepository.transaction(async (conn) => {
         await userRepository.updateBalance(order.user_id, change, conn)
-        const walletInfo = await userRepository.find<UserWalletRow>('game_user_wallets', { user_id: order.user_id }, ['user_id', 'balance'])
+        const walletInfo = await userRepository.find<UserWalletRow>('game_user_wallets', { user_id: order.user_id }, ['user_id', 'balance'], conn)
+        afterBalance = walletInfo!.balance
         if (order.user_type === UserType.Player) {
           await userRepository.insert('game_transactions', {
             user_id: order.user_id,
@@ -204,10 +204,10 @@ export class SettleQueueService extends BaseQueueService<SettleJob> {
             after_balance: walletInfo!.balance,
             remark: roundSn,
             operate_time: new Date(),
-          })
+          }, conn)
         }
-        this.handleSuccess(userRepository, { user_id: order.user_id, table_id: order.table_id, settle_result: order.settle_result }, walletInfo!.balance)
       })
+      this.handleSuccess(userRepository, { user_id: order.user_id, table_id: order.table_id, settle_result: order.settle_result }, afterBalance)
     }
   }
 
@@ -239,7 +239,7 @@ export class SettleQueueService extends BaseQueueService<SettleJob> {
         betAmount: order.bet_amount,
         amount: change,
         winLose: order.settle_result,
-        txd: uuidV1().replace(/-/g, ''),
+        txd: crypto.randomUUID().replace(/-/g, ''),
         gameType: order.game_type,
         tableId: order.table_no,
         gameId: roundSn,
@@ -270,7 +270,7 @@ export class SettleQueueService extends BaseQueueService<SettleJob> {
       //! 必须使用数据库事务
       await userRepository.transaction(async (conn) => {
         await userRepository.updateBalance(order.user_id, change, conn)
-        const walletInfo = await userRepository.find<UserWalletRow>('game_user_wallets', { user_id: order.user_id }, ['user_id', 'balance'])
+        const walletInfo = await userRepository.find<UserWalletRow>('game_user_wallets', { user_id: order.user_id }, ['user_id', 'balance'], conn)
         if (order.user_type === UserType.Player) {
           await userRepository.insert('game_transactions', {
             user_id: order.user_id,
@@ -281,7 +281,7 @@ export class SettleQueueService extends BaseQueueService<SettleJob> {
             after_balance: walletInfo!.balance,
             remark: roundSn,
             operate_time: new Date(),
-          })
+          }, conn)
         }
         this.handleSuccess(userRepository, { user_id: order.user_id, table_id: order.table_id, settle_result: order.settle_result }, walletInfo!.balance)
       })
@@ -294,7 +294,7 @@ export class SettleQueueService extends BaseQueueService<SettleJob> {
     const userInfo = (await userRepository.getUserCache(order.user_id))!
     if (userInfo.wallet_type === UserWalletType.Single) {
       const requestData = {
-        txd: uuidV1().replace(/-/g, ''),
+        txd: crypto.randomUUID().replace(/-/g, ''),
         betAmount: order.bet_amount,
         betTime: order.bet_time,
         username: userInfo.username,
@@ -327,9 +327,11 @@ export class SettleQueueService extends BaseQueueService<SettleJob> {
     } else {
       // 只有当结算余额大于0,才更新余额,以前是0,也新增结算变化
       //! 必须使用数据库事务
+      let afterBalance = 0
       await userRepository.transaction(async (conn) => {
         await userRepository.updateBalance(order.user_id, change, conn)
-        const walletInfo = await userRepository.find<UserWalletRow>('game_user_wallets', { user_id: order.user_id }, ['user_id', 'balance'])
+        const walletInfo = await userRepository.find<UserWalletRow>('game_user_wallets', { user_id: order.user_id }, ['user_id', 'balance'], conn)
+        afterBalance = walletInfo!.balance
         if (userInfo.user_type === UserType.Player) {
           await userRepository.insert('game_transactions', {
             user_id: order.user_id,
@@ -340,10 +342,10 @@ export class SettleQueueService extends BaseQueueService<SettleJob> {
             after_balance: walletInfo!.balance,
             remark: roundSn,
             operate_time: new Date(),
-          })
+          }, conn)
         }
-        this.handleSuccess(userRepository, { user_id: order.user_id, table_id: order.table_id, settle_result: 0 }, walletInfo!.balance)
       })
+      this.handleSuccess(userRepository, { user_id: order.user_id, table_id: order.table_id, settle_result: 0 }, afterBalance)
     }
   }
 }

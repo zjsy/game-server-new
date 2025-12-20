@@ -124,13 +124,12 @@ export class StopBettingQueueService extends BaseQueueService<StopBettingJob> {
       // 更新redis
       repositories.table.updateTableCache(tableId, { play_status: RoundStatus.Dealing })
       // 广播停止下注消息
-      const betStateC = await repositories.game.getBetStatsCCache(tableId)
-      const betStateN = await repositories.game.getBetStatsNCache(tableId)
+      const { statsC: betStatsC, statsN: betStatsN } = await repositories.game.getBetStatsCache(tableId)
       this.fastify.gameBroadcast?.globalBroadcast(PushConst.END_COUNTDOWN, {
         tableId,
         roundId,
-        betStateC,
-        betStateN,
+        betStatsC,
+        betStatsN,
       })
     }
   }

@@ -1,5 +1,6 @@
 import { RowDataPacket } from 'mysql2'
 import { safeParse } from '../utils/json.parse.utils.js'
+import { GameDetails } from '../types/game.types.js'
 export interface RoundRaw {
   id: number;
   table_id: number;
@@ -21,7 +22,7 @@ export interface RoundRow extends RowDataPacket, RoundRaw { }
 
 export interface Round extends Omit<RoundRaw, 'result' | 'details'> {
   result: number[]; // 解析后的数组
-  details: Record<string, unknown> | number[]; // 解析后的对象,目前只有sicbo是 number[]
+  details: GameDetails; // 解析后的对象,目前只有sicbo是 number[]
 }
 
 // 将 RoundRow 转换为 Round（解析 JSON 字段）

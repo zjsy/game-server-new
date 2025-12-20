@@ -12,7 +12,7 @@ export type betJson = {
   value: number;
 }
 
-type GameDetails = BaccDetails | DtDetails | sicBoDetails | BullDetails | DpDetails | FastSicBoDetails | seDieDetails | rouletteDetails | null
+export type GameDetails = BaccDetails | DtDetails | sicBoDetails | BullDetails | DpDetails | FastSicBoDetails | seDieDetails | rouletteDetails | null
 export type SettleRoundData<T extends GameDetails> = {
   // roundId: number;
   round_sn: string;

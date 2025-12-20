@@ -8,7 +8,7 @@ import { mapRoundRow, Round, RoundRow } from '../entities/RoundInfo.js'
 
 type ConfigCache = {
   bakVideoUrl: string;
-  resourceUrl: string;
+  resUrl: string;
 }
 type RoundCacheData<T = unknown> = { id: number; result?: number[], details?: T, status: number }
 export class GameRepository extends BaseRepository {
@@ -29,7 +29,7 @@ export class GameRepository extends BaseRepository {
       const config = JSON.parse(gameConfig.value) as Record<string, string>
       const configCache: ConfigCache = {
         bakVideoUrl: config.bakVideoUrl || '',
-        resourceUrl: config.resourceUrl || '',
+        resUrl: config.resUrl || '',
       }
       this.redis.hmset('cache:config', configCache)
       return config[key] || null
