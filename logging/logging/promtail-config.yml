@@ -1,0 +1,105 @@
+server:
+  http_listen_port: 9080
+  grpc_listen_port: 0
+  log_level: info
+
+positions:
+  filename: /tmp/positions.yaml
+
+clients:
+  - url: http://loki:3100/loki/api/v1/push
+
+scrape_configs:
+  # 收集 Docker 容器日志
+  - job_name: docker
+    docker_sd_configs:
+      - host: unix:///var/run/docker.sock
+        refresh_interval: 5s
+    relabel_configs:
+      # 容器名称
+      - source_labels: ['__meta_docker_container_name']
+        regex: '/(.*)'
+        target_label: 'container'
+      # 项目名称（从容器标签中获取）
+      - source_labels: ['__meta_docker_container_label_com_docker_compose_project']
+        target_label: 'project'
+      # 服务名称
+      - source_labels: ['__meta_docker_container_label_com_docker_compose_service']
+        target_label: 'service'
+      # 容器 ID
+      - source_labels: ['__meta_docker_container_id']
+        target_label: 'container_id'
+      # 镜像名称
+      - source_labels: ['__meta_docker_container_image']
+        target_label: 'image'
+      # 日志路径
+      - source_labels: ['__meta_docker_container_log_stream']
+        target_label: 'stream'
+    pipeline_stages:
+      # 解析 JSON 格式的日志（如 Pino 输出）
+      - json:
+          expressions:
+            level: level
+            msg: msg
+            time: time
+            pid: pid
+            hostname: hostname
+      # 时间戳解析
+      - timestamp:
+          source: time
+          format: Unix
+      # 日志级别标签
+      - labels:
+          level:
+          stream:
+
+  # 收集应用文件日志（可选）
+  - job_name: app-logs
+    static_configs:
+      - targets:
+          - localhost
+        labels:
+          job: app-logs
+          project: fggame-open-api
+          __path__: /app/logs/*.log
+    pipeline_stages:
+      # 针对 Pino JSON 格式的日志
+      - json:
+          expressions:
+            level: level
+            msg: msg
+            time: time
+            pid: pid
+      - timestamp:
+          source: time
+          format: Unix
+      - labels:
+          level:
+      # 输出格式化
+      - output:
+          source: msg
+
+  # 收集 Nginx 日志（如果启用）
+  - job_name: nginx
+    docker_sd_configs:
+      - host: unix:///var/run/docker.sock
+        refresh_interval: 5s
+        filters:
+          - name: label
+            values: ["com.docker.compose.service=nginx"]
+    relabel_configs:
+      - source_labels: ['__meta_docker_container_name']
+        regex: '/(.*)'
+        target_label: 'container'
+      - source_labels: ['__meta_docker_container_label_com_docker_compose_project']
+        target_label: 'project'
+    pipeline_stages:
+      # 解析 Nginx 访问日志
+      - regex:
+          expression: '^(?P<remote_addr>[\w\.]+) - (?P<remote_user>[^ ]*) \[(?P<time_local>.*)\] "(?P<method>[^ ]*) (?P<request>[^ ]*) (?P<protocol>[^ ]*)" (?P<status>[\d]+) (?P<body_bytes_sent>[\d]+) "(?P<http_referer>[^"]*)" "(?P<http_user_agent>[^"]*)"'
+      - labels:
+          method:
+          status:
+      - timestamp:
+          source: time_local
+          format: '02/Jan/2006:15:04:05 -0700'

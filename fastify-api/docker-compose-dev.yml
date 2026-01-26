@@ -1,11 +1,9 @@
-# Dev Container Docker Compose
-version: '3.8'
-
 services:
   dealer-api-dev:
     build:
       context: .
       dockerfile: Dockerfile.dev
+    image: fggame/dealer-api:latest
     container_name: dealer-api-devcontainer
     volumes:
       - .:/app  # 挂载源码目录（移除 cached 选项以支持文件监听）

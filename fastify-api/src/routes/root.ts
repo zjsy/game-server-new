@@ -4,6 +4,9 @@ const root: FastifyPluginAsync = async (fastify, _opts): Promise<void> => {
   fastify.get('/', async function (_request, _reply) {
     return 'FG Game Server Api is running!'
   })
+  fastify.get('/health', async function (_request, _reply) {
+    return { status: 'ok' }
+  })
 }
 
 export default root

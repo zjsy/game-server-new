@@ -1,6 +1,4 @@
 import fp from 'fastify-plugin'
-import swagger from '@fastify/swagger'
-import swaggerUI from '@fastify/swagger-ui'
 import { FastifyPluginAsync } from 'fastify'
 
 const swaggerPlugin: FastifyPluginAsync = async (fastify) => {
@@ -12,7 +10,11 @@ const swaggerPlugin: FastifyPluginAsync = async (fastify) => {
     return
   }
 
-  await fastify.register(swagger, {
+  // 动态加载依赖
+  const swaggerModule = await import('@fastify/swagger')
+  const swaggerUIModule = await import('@fastify/swagger-ui')
+
+  await fastify.register(swaggerModule.default, {
     openapi: {
       info: {
         title: 'Fastify API',
@@ -42,7 +44,7 @@ const swaggerPlugin: FastifyPluginAsync = async (fastify) => {
     }
   })
 
-  await fastify.register(swaggerUI, {
+  await fastify.register(swaggerUIModule.default, {
     routePrefix: '/docs',
     uiConfig: {
       docExpansion: 'list',
